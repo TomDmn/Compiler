@@ -1,8 +1,3 @@
-open Batteries
-open BatList
-open Batteries
-open BatList
-open BatBuffer
 open Prog
 open Elang
 open Cfg
@@ -78,7 +73,7 @@ let rec json_summary j =
   | `List l -> `List (List.map json_summary l)
   | _ -> j
 let trace_regs st =
-  Array.fold_lefti (fun acc r v ->
+  Collections.array_fold_lefti (fun acc r v ->
       (string_of_reg r, `Int v) :: acc
     ) [] st.regs
   |> fun l -> `Assoc l
@@ -157,11 +152,12 @@ let debugger_message progname breaks state st prog rstop client : unit Lwt.t =
           | OK (Break ip) ->
             breaks := ip :: !breaks; Lwt.return_unit
           | OK (RmBreak ip) ->
-            breaks := List.remove_all !breaks ip; Lwt.return_unit
+            breaks := List.filter (fun breakpoint -> breakpoint <> ip) !breaks;
+            Lwt.return_unit
           | OK (Init (memsize, params)) ->
             st := init_state memsize prog params;
             breaks := [];
-            begin match Hashtbl.find_option !st.funs "main" with
+            begin match Hashtbl.find_opt !st.funs "main" with
               | Some floc ->
                 let ip = floc.funstart in
                 state := Some ip;
@@ -177,7 +173,7 @@ let debugger_message progname breaks state st prog rstop client : unit Lwt.t =
                                 ) funinfo))
                             ]) :: acc
                   ) !st.funs [] |> fun funboundaries ->
-                Array.fold_lefti (fun acc ip ins ->
+    Collections.array_fold_lefti (fun acc ip ins ->
                     (Format.fprintf Format.str_formatter "%a" dump_ltl_instr ins);
                     (string_of_int ip, `String (Format.flush_str_formatter ())) :: acc
                   ) [] !st.code |> fun code ->

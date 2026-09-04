@@ -1,4 +1,3 @@
-open Batteries
 open Rtl
 open Linear
 open Prog
@@ -7,6 +6,7 @@ open Report
 open Linear_print
 open Options
 open Linear_liveness
+module Set = Collections.IntSet
 
 let succs_of_rtl_instr (i: rtl_instr) =
   match i with
@@ -17,16 +17,16 @@ let succs_of_rtl_instr (i: rtl_instr) =
 let rec succs_of_rtl_instrs il : int list =
   List.concat (List.map succs_of_rtl_instr il)
 
-(* effectue un tri topologique des blocs.  *)
+(* performs a topological sorting of blocks.*)
 let sort_blocks (nodes: (int, rtl_instr list) Hashtbl.t) entry =
   let rec add_block order n =
    (* TODO *)
-   List.of_enum (Hashtbl.keys nodes)
+   List.of_seq (Hashtbl.to_seq_keys nodes)
   in
   add_block [] entry
 
 
-(* Supprime les jumps inutiles (Jmp à un label défini juste en dessous). *)
+(* Removes unnecessary jumps (Jmp to a label defined just below).*)
 let rec remove_useless_jumps (l: rtl_instr list) =
    (* TODO *)
    l
@@ -43,7 +43,7 @@ let linear_of_rtl_fun
   let linearinstrs =
     Rjmp rtlfunentry ::
     List.fold_left (fun l n ->
-        match Hashtbl.find_option rtlfunbody n with
+        match Hashtbl.find_opt rtlfunbody n with
         | None -> l
         | Some li -> l @ Rlabel(n) :: li
       ) [] block_order in

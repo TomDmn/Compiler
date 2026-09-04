@@ -1,8 +1,8 @@
-open Batteries
 open Elang_print
 open Rtl
 open Prog
 open Utils
+module Set = Collections.IntSet
 
 
 let print_reg r =
@@ -22,7 +22,9 @@ let dump_rtl_instr name (live_in, live_out) ?(endl="\n") oc (i: rtl_instr) =
 
   let dump_liveness live where =
     match live with
-      Some live -> Format.fprintf oc "// Live %s : { %s }\n" where (String.concat ", " (Set.to_list (Set.map string_of_int live)))
+      Some live ->
+        Format.fprintf oc "// Live %s : { %s }\n" where
+          (String.concat ", " (List.map string_of_int (Set.to_list live)))
     | None -> ()
   in
   dump_liveness live_in "before";
@@ -51,7 +53,7 @@ let dump_rtl_node name lives =
         (match lives with
            None -> (None, None)
          | Some (lin, lout) ->
-           Hashtbl.find_option lin i, Hashtbl.find_option lout i)
+           Hashtbl.find_opt lin i, Hashtbl.find_opt lout i)
         ~endl:"\n"
     ) "" "" ""
 

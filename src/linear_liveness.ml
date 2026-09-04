@@ -1,9 +1,8 @@
-open Batteries
-open BatList
 open Prog
 open Utils
 open Linear
 open Rtl
+module Set = Collections.IntSet
 
 let gen_live (i: rtl_instr) =
   match i with
@@ -31,8 +30,8 @@ let kill_live (i: rtl_instr) =
 
 let linear_succs (ins: rtl_instr) i labels =
   match ins with
-  | Rbranch(_, _, _, s1) -> [Hashtbl.find_default labels s1 0; i+1]
-  | Rjmp s -> [Hashtbl.find_default labels s 0]
+  | Rbranch(_, _, _, s1) -> [Collections.hashtbl_find_default labels s1 0; i+1]
+  | Rjmp s -> [Collections.hashtbl_find_default labels s 0]
   | Rret r -> []
   | _ -> [i+1]
 
@@ -46,21 +45,21 @@ let setup_labels insl =
   labels
 
 let add_changes h k v =
-  let orig = Hashtbl.find_default h k Set.empty in
+  let orig = Collections.hashtbl_find_default h k Set.empty in
   Hashtbl.replace h k v;
   not (Set.equal v orig)
 
 let iter_liveness insl live_in live_out labels =
-  List.fold_lefti (fun changed i ins ->
+  Collections.list_fold_lefti (fun changed i ins ->
 
       let gl = gen_live ins in
       let kl = kill_live ins in
-      let oi = Hashtbl.find_default live_out i Set.empty in
+      let oi = Collections.hashtbl_find_default live_out i Set.empty in
       let newin = Set.union gl (Set.diff oi kl) in
       let changed = add_changes live_in i newin || changed in
       let succs = linear_succs ins i labels in
       let j = List.fold_left (fun j succ ->
-          Set.union j (Hashtbl.find_default live_in succ Set.empty)
+          Set.union j (Collections.hashtbl_find_default live_in succ Set.empty)
         ) Set.empty succs in
       add_changes live_out i j || changed
     ) false insl

@@ -1,4 +1,3 @@
-open Batteries
 open Elang
 open Prog
 open Utils
@@ -29,7 +28,7 @@ let rec dump_eexpr = function
 
 let indent_size = 2
 let spaces n =
-  range (indent_size*n) |> List.map (fun _ -> ' ') |> String.of_list
+  range (indent_size*n) |> List.map (fun _ -> ' ') |> List.to_seq |> String.of_seq
 
 let print_spaces oc n =
   Format.fprintf oc "%s" (spaces n)

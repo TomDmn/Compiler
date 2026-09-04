@@ -1,7 +1,6 @@
 open Elang
 open Prog
-open Batteries
-open BatList
+module Set = Collections.IntSet
 
 type expr =
     Ebinop of binop * expr * expr
@@ -25,10 +24,10 @@ type cfg_fun = {
 type cprog = cfg_fun prog
 
 
-(* [succs cfg n] donne l'ensemble des successeurs d'un nœud [n] dans un CFG
-   [cfg]. *)
+(* [succs cfg n] gives the set of successors of a node [n] in a CFG
+   [cfg].*)
 let succs cfg n =
-  match Hashtbl.find_option cfg n with
+  match Hashtbl.find_opt cfg n with
   | None -> Set.empty
   | Some (Cprint (_, s))
   | Some (Cassign (_, _, s)) -> Set.singleton s
@@ -37,7 +36,7 @@ let succs cfg n =
   | Some (Cnop s) -> Set.singleton s
 
 
-(* [preds cfg n] donne l'ensemble des prédécesseurs d'un nœud [n] dans un CFG [cfg]
+(* [preds cfg n] gives the set of predecessors of a node [n] in a CFG [cfg]
    *)
 let preds cfgfunbody n =
   Hashtbl.fold (fun m m' acc ->

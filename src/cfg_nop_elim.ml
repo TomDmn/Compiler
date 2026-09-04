@@ -1,78 +1,76 @@
-open BatList
-open Batteries
 open Prog
 open Utils
 open Cfg
 open Report
 open Cfg_print
 open Options
+module Set = Collections.IntSet
 
-(* Élimination des NOPs. *)
+(* Elimination of NOPs.*)
 
-(* [nop_transitions cfg] donne la liste des transitions NOP dans un CFG.
+(* [nop_transitions cfg] gives the list of NOP transitions in a CFG.
 
-   Si le nœud [n] contient [Cnop s], alors [(n,s)] devrait être dans le résultat.
+   If node [n] contains [Cnop s], then [(n,s)] should be in the result.
 *)
 let nop_transitions (cfgfunbody: (int, cfg_node) Hashtbl.t) : (int * int) list =
    (* TODO *)
    []
 
 
-(* [follow n l visited] donne le premier successeur à partir de [n] qui ne soit
-   pas un NOP. Pour connaître le successeur d'un nœud NOP, on utilisara la liste
-   [l] telle que produite précédemment. Pour rappel [(x,y)] dans [l] signifie
-   qu'il y a un transition depuis un nœud [x] qui contient une instruction [Cnop
+(* [follow n l visited] gives the first successor reachable from [n] that is
+   not a NOP. To find the successor of a NOP node, we use the list
+   [l] as produced previously. As a reminder [(x,y)] in [l] means
+   that there is a transition from a node [x] which contains an instruction [Cnop
    y].
 
-   L'ensemble [visited] est utilisé pour éviter les boucles.
+   The [visited] set is used to avoid loops.
    *)
-let rec follow (n: int) (l: (int * int) list) (visited: int Set.t) : int =
+let rec follow (n: int) (l: (int * int) list) (visited: Set.t) : int =
    (* TODO *)
    n
 
-(* [nop_transitions_closed] contient la liste [(n,s)] telle que l'instruction au
-   nœud [n] est le début d'une chaîne de NOPs qui termine au nœud [s]. Les
-   enseignants du cours de compiilation sont heureux de vous offrir cette
-   fonction. *)
+(* [nop_transitions_closed] contains pairs [(n,s)] such that node [n] starts a
+   chain of NOPs ending at node [s]. The course instructors are happy to
+   provide this function. *)
 let nop_transitions_closed cfgfunbody =
   List.map (fun (node_id, node) ->
       (node_id, follow node_id (nop_transitions cfgfunbody) Set.empty))
     (nop_transitions cfgfunbody)
 
-(* Nous allons maintenant réécrire notre programme pour remplacer les
-   successeurs [s] de chaque nœud du CFG de la manière suivante : si [s] est le
-   début d'une chaîne de NOPs, on remplace [s] par la fin de cette chaîne, en
-   éliminant ainsi les nœuds NOPs. *)
+(* We will now rewrite our program to replace the
+   successors [s] of each node of the CFG in the following way: if [s] is the
+   beginning of a chain of NOPs, we replace [s] with the end of that chain,
+   thereby eliminating the NOP nodes. *)
 
-(* [replace_succ nop_succs s] donne le nouveau nom du nœud [s], en utilisant la
-   liste [nop_succs] (telle que renvoyée par [nop_transitions_closed]). *)
+(* [replace_succ nop_succs s] gives the new name of the node [s], using the
+   list [nop_succs] (as returned by [nop_transitions_closed]).*)
 let replace_succ nop_succs s =
    (* TODO *)
    s
 
-(* [replace_succs nop_succs n] remplace le nœud [n] par un nœud équivalent où on
-   a remplacé les successeurs, en utilisant la liste [nop_succs]. *)
+(* [replace_succs nop_succs n] replaces node [n] with an equivalent node whose
+   successors have been replaced using [nop_succs]. *)
 let replace_succs nop_succs (n: cfg_node) =
    (* TODO *)
    n
 
-(* [nop_elim_fun f] applique la fonction [replace_succs] à chaque nœud du CFG. *)
+(* [nop_elim_fun f] applies the [replace_succs] function to each node in the CFG.*)
 let nop_elim_fun ({ cfgfunargs; cfgfunbody; cfgentry } as f: cfg_fun) =
   let nop_transf = nop_transitions_closed cfgfunbody in
-  (* On utilise la fonction [Hashtbl.filter_map f h] qui permet d'appliquer une
-     fonction à chaque nœud de [h] et d'éliminer ceux pour lesquels [f] renvoie
+  (* We use the [Collections.hashtbl_filter_map f h] function which allows you to apply a
+     function at each node of [h] and eliminate those for which [f] returns
      [None].
 
-     On souhaite éliminer les nœuds qui n'ont pas de prédécesseurs
-     (inaccessibles), et appliquer la fonction [replace_succs] aux nœuds qui
-     resteront.
+     We want to eliminate nodes that have no predecessors
+     (inaccessible), and apply the [replace_succs] function to the nodes which
+     will remain.
   *)
-  let cfgfunbody = Hashtbl.filter_map (fun n node ->
+  let cfgfunbody = Collections.hashtbl_filter_map (fun n node ->
          (* TODO *)
          Some node
     ) cfgfunbody in
-  (* La fonction renvoyée est composée du nouveau [cfgfunbody] que l'on vient de
-     calculer, et le point d'entrée est transformé en conséquence. *)
+  (* The returned function contains the new [cfgfunbody] computed above, and
+     its entry point is transformed accordingly. *)
   {f with cfgfunbody; cfgentry = replace_succ nop_transf cfgentry }
 
 let nop_elim_gdef gd =

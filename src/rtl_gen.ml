@@ -1,4 +1,3 @@
-open Batteries
 open Elang
 open Cfg
 open Rtl
@@ -8,23 +7,23 @@ open Report
 open Rtl_print
 open Options
 
-(* Une partie de la génération de RTL consiste à allouer les variables dans des
-   pseudo-registres RTL.
+(* Part of generating RTL involves allocating variables into
+   RTL pseudo-registers.
 
-   Ces registres sont en nombre illimité donc ce problème est facile.
+   These registers are unlimited in number so this problem is easy.
 
-   Étant donnés :
-   - [next_reg], le premier numéro de registre disponible (pas encore alloué à
-   une variable)
-   - [var2reg], une liste d'associations dont les clés sont des variables et les
-   valeurs des numéros de registres
-   - [v] un nom de variable (de type [string]),
+   Given:
+   - [next_reg], the first available register number (not yet allocated to
+   a variable)
+   - [var2reg], a list of associations whose keys are variables and the
+   register number values
+   - [v] a variable name (of type [string]),
 
-   [find_var (next_reg, var2reg) v] renvoie un triplet [(r, next_reg, var2reg)]:
+   [find_var (next_reg, var2reg) v] returns a triple [(r, next_reg, var2reg)]:
 
-   - [r] est le registre RTL associé à la variable [v]
-   - [next_reg] est le nouveau premier registre disponible
-   - [var2reg] est la nouvelle association nom de variable/registre.
+   - [r] is the RTL register associated with the variable [v]
+   - [next_reg] is the new first register available
+   - [var2reg] is the new variable name/register association.
 
 *)
 let find_var (next_reg, var2reg) v =
@@ -32,15 +31,15 @@ let find_var (next_reg, var2reg) v =
     | Some r -> (r, next_reg, var2reg)
     | None -> (next_reg, next_reg + 1, assoc_set var2reg v next_reg)
 
-(* [rtl_instrs_of_cfg_expr (next_reg, var2reg) e] construit une liste
-   d'instructions RTL correspondant à l'évaluation d'une expression E.
+(* [rtl_instrs_of_cfg_expr (next_reg, var2reg) e] constructs a list
+   of RTL instructions corresponding to the evaluation of an expression E.
 
-   Le retour de cette fonction est un quadruplet [(r,l,next_reg,var2reg)], où :
-   - [r] est le registre RTL dans lequel le résultat de l'évaluation de [e] aura
-     été stocké
-   - [l] est une liste d'instructions RTL.
-   - [next_reg] est le nouveau premier registre disponible
-   - [var2reg] est la nouvelle association nom de variable/registre.
+   The return of this function is a quadruplet [(r,l,next_reg,var2reg)], where:
+   - [r] is the RTL register in which the result of the evaluation of [e] will have
+     been stored
+   - [l] is a list of RTL instructions.
+   - [next_reg] is the new first register available
+   - [var2reg] is the new variable name/register association.
 *)
 let rec rtl_instrs_of_cfg_expr (next_reg, var2reg) (e: expr) =
    (next_reg, [], next_reg, var2reg)

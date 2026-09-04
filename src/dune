@@ -14,7 +14,6 @@
 (executables
  (names main test_lexer)
  (libraries
-   batteries
    yojson
    lwt
    websocket

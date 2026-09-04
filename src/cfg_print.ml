@@ -1,7 +1,7 @@
-open Batteries
 open Cfg
 open Elang_print
 open Prog
+module Set = Collections.StringSet
 
 let rec dump_cfgexpr : expr -> string = function
   | Ebinop(b, e1, e2) -> Format.sprintf "(%s %s %s)" (dump_cfgexpr e1) (dump_binop b) (dump_cfgexpr e2)
@@ -37,7 +37,7 @@ let dump_cfg_node oc (node: cfg_node) =
 let dump_liveness_state oc ht state =
   Hashtbl.iter (fun n cn ->
       Format.fprintf oc "%a : " dump_cfg_node cn;
-      let vs = Hashtbl.find_default state n Set.empty in
+      let vs = Collections.hashtbl_find_default state n Set.empty in
       Set.iter (fun v ->Format.fprintf oc "%s, " v) vs;
       Format.fprintf oc "\n";
       flush_all ()
@@ -55,4 +55,3 @@ let dump_cfg_prog oc (cp: cprog) =
   Format.fprintf oc "digraph G{\n";
   dump_prog dump_cfg_fun oc cp;
   Format.fprintf oc "\n}"
-

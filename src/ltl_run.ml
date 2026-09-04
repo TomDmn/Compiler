@@ -1,7 +1,3 @@
-open Batteries
-open BatList
-open Batteries
-open BatList
 open Prog
 open Elang
 open Cfg
@@ -51,7 +47,7 @@ type ltl_state = {
 
 (* Finds the position of a label in the code. *)
 let find_label (labels: (string, int) Hashtbl.t) (l: string) =
-  match Hashtbl.find_option labels l with
+  match Hashtbl.find_opt labels l with
   | Some ip -> OK ip
   | None -> Error (Format.sprintf "Label %s not found." l)
 
@@ -127,7 +123,7 @@ let exec_ltl_instr oc ip st : (int option) res =
         then find_label st.labels s >>= fun n -> OK (Some n)
         else next ip
   | LCall callee_name ->
-    begin match Hashtbl.find_option st.funs callee_name with
+    begin match Hashtbl.find_opt st.funs callee_name with
         Some {funstart} ->
         Array.set st.regs reg_ra (ip+1);
         OK (Some funstart)
@@ -214,7 +210,8 @@ let init_state memsize lp params =
   Mem.write_bytes mem codesize (split_bytes (Archi.wordsize ()) !mem_next) >>!
   fun _ ->
   Printf.eprintf "numlabels = %d\n" (Hashtbl.length labels);
-  Printf.eprintf "labels = %s\n" (Hashtbl.keys labels |> List.of_enum |> String.concat ", ");
+  Printf.eprintf "labels = %s\n"
+    (Hashtbl.to_seq_keys labels |> List.of_seq |> String.concat ", ");
   { code; funs; mem ; labels; regs ; numstep = ref 0}
 
 
@@ -226,9 +223,8 @@ let rec exec_ltl_at oc ip st =
 
 let exec_ltl_prog oc lp memsize params : int option res =
   let st = init_state memsize lp params in
-  match Hashtbl.find_option st.funs "main" with
+  match Hashtbl.find_opt st.funs "main" with
   | None -> Error (Format.sprintf "Could not find function main.")
   | Some {funstart} ->
     exec_ltl_at oc funstart st >>= fun st ->
     OK (Some (Array.get st.regs reg_ret))
-

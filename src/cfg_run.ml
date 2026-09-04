@@ -1,8 +1,6 @@
 open Prog
 open Elang
 open Elang_run
-open Batteries
-open BatList
 open Cfg
 open Utils
 open Builtins
@@ -20,13 +18,13 @@ let rec eval_cfgexpr st (e: expr) : int res =
     OK v
   | Eint i -> OK i
   | Evar s ->
-    begin match Hashtbl.find_option st.env s with
+    begin match Hashtbl.find_opt st.env s with
       | Some v -> OK v
       | None -> Error (Printf.sprintf "Unknown variable %s\n" s)
     end
 
 let rec eval_cfginstr oc st ht (n: int): (int * int state) res =
-  match Hashtbl.find_option ht n with
+  match Hashtbl.find_opt ht n with
   | None -> Error (Printf.sprintf "Invalid node identifier\n")
   | Some node ->
     match node with

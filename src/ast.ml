@@ -1,23 +1,21 @@
-open Batteries
 
-(* Les AST sont des arbres, du type [tree], étiquetés par des [tag].
+(* ASTs are trees, of type [tree], labeled by [tag].
 
-   Un arbre [tree] est soit un nœud [Node(t, children)] où [t] est un tag et
-   [children] une liste de sous-arbres ; soit une feuille qui contient une
-   chaîne de caractères ([StringLeaf]), un entier ([IntLeaf]), un caractère
-   ([CharLeaf]), ou rien du tout ([NullLeaf]).
+   A tree [tree] is either a node [Node(t, children)] where [t] is a tag and
+   [children] is a list of subtrees, or a leaf containing a string
+   ([StringLeaf]), an integer ([IntLeaf]), a character
+   ([CharLeaf]), or nothing at all ([NullLeaf]).
 
-   La signification des différents tags :
+   The meaning of the different tags:
 
-   - importe peu : vous pouvez définir de nouveaux types de tags si ça vous
-   semble nécessaire / profitable, pour peu de compléter la fonction
-   [string_of_tag] ci-dessous.
+   - is largely up to you: you may define new tags if that seems useful, as
+   long as you complete the [string_of_tag] function below.
 
-   - devrait être assez claire d'après le nom du tag ou l'utilisation qui en est
-   faite dans l'exemple donné dans le sujet.
+   - should be fairly clear from the tag name or its use in the example given
+   in the handout.
 
-   - peut être demandée à votre encadrant de TP favori (ou celui présent en
-   séance, à défaut)
+   - can be clarified by your favorite lab instructor (or whichever instructor
+   is present).
 
 
 *)
@@ -75,7 +73,7 @@ let string_of_tag = function
   | Targ -> "Targ"
 
 
-(* Écrit un fichier .dot qui correspond à un AST *)
+(* Writes a .dot file which corresponds to an AST*)
 let rec draw_ast a next =
   match a with
   | Node (t, l) ->

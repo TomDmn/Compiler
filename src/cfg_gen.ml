@@ -1,4 +1,3 @@
-open Batteries
 open Elang
 open Cfg
 open Utils
@@ -6,6 +5,7 @@ open Prog
 open Report
 open Cfg_print
 open Options
+module Set = Collections.IntSet
 
 (* [cfg_expr_of_eexpr e] converts an [Elang.expr] into a [expr res]. This should
    always succeed and be straightforward.
@@ -78,7 +78,7 @@ let rec reachable_nodes n (cfg: (int,cfg_node) Hashtbl.t) =
   let rec reachable_aux n reach =
     if Set.mem n reach then reach
     else let reach = Set.add n reach in
-      match Hashtbl.find_option cfg n with
+      match Hashtbl.find_opt cfg n with
       | None -> reach
       | Some (Cnop succ)
       | Some (Cprint (_, succ))
@@ -95,7 +95,8 @@ let cfg_fun_of_efun { funargs; funbody } =
   cfg_node_of_einstr 1 cfg 0 funbody >>= fun (node, _) ->
   (* remove unreachable nodes *)
   let r = reachable_nodes node cfg in
-  Hashtbl.filteri_inplace (fun k _ -> Set.mem k r) cfg;
+  Hashtbl.filter_map_inplace
+    (fun k node -> if Set.mem k r then Some node else None) cfg;
   OK { cfgfunargs = funargs;
        cfgfunbody = cfg;
        cfgentry = node;

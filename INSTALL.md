@@ -10,11 +10,10 @@
     - menhir
     - lwt
     - logs
-    - batteries
     - yojson
     - websocket
     - websocket-lwt-unix
-4. Install Alpaga from its sibling checkout
-    > opam pin add alpaga ../alpaga
+4. Install Alpaga from its Git repository
+    > opam pin add alpaga git+https://gitlab-research.centralesupelec.fr/cidre-public/compilation/alpaga.git
 5. Build the project
     > make

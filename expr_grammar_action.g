@@ -15,9 +15,6 @@ axiom S
 
   open Symbols
   open Ast
-  open BatPrintf
-  open BatBuffer
-  open Batteries
   open Utils
 
   (* TODO *)

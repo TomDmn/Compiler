@@ -1,4 +1,3 @@
-open Batteries
 open Rtl_print
 open Linear
 open Prog
@@ -11,7 +10,7 @@ let dump_linear_fun oc lives lfname l =
   let lives = match lives with
     | None -> None
     | Some lives -> 
-      (Hashtbl.find_option lives lfname)
+      (Hashtbl.find_opt lives lfname)
   in
   dump_rtl_node lfname lives oc l.linearfunbody
 

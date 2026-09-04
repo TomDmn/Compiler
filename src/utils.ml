@@ -1,6 +1,4 @@
-open Batteries
-open BatBuffer
-open BatList
+open Collections
 
 type 'a res = OK of 'a | Error of string
 type ('a , 'b) sum = Inl of 'a | Inr of 'b
@@ -8,13 +6,6 @@ type ('a , 'b, 'c) trisum = Tri1 of 'a | Tri2 of 'b | Tri3 of 'c
 
 let string_of_error (msg: string) : string =
   msg
-
-let sprintf msg =
-  let s = BatBuffer.create 17 in
-  msg (output_buffer s);
-  BatBuffer.contents s
-
-
 
 let option_to_res_bind r m f = match r with
   | Some r -> f r
@@ -66,7 +57,7 @@ let rec split_bytes n i =
 
 let write_mem_bytes mem addr bl =
   bl |>
-  List.fold_lefti (fun acc i b ->
+  list_fold_lefti (fun acc i b ->
       acc >>= fun l ->
       let ofs = addr+i in let v = b mod 256 in
       try mem.(ofs) <- v; OK ((ofs,v)::l)
@@ -106,7 +97,7 @@ let read_mem_bytes mem addr n =
 
 let read_mem_bytes_as_int mem addr n =
   read_mem_bytes mem addr n >>= fun (bl, read_list) ->
-  OK (int_of_bytes (rev bl), read_list)
+  OK (int_of_bytes (List.rev bl), read_list)
 
 
 let read_mem_int mem addr =
@@ -180,7 +171,7 @@ let assoc_split fl fr l =
 type string_env = int ref * (int, string) Hashtbl.t
 
 let lookup_string_env (senv: string_env) i =
-  Hashtbl.find_option (snd senv) i
+  Hashtbl.find_opt (snd senv) i
 
 let add_string_env (senv: string_env) s =
   let cur = !(fst senv) in
@@ -234,9 +225,6 @@ let print_optint oc = function
   | None -> Format.fprintf oc "None"
   | Some v -> Format.fprintf oc "Some(%d)" v
 
-let set_concat sl =
-  List.fold_left (fun acc e -> Set.union acc e) Set.empty sl
-
 let list_map_res f l =
   List.fold_left (fun acc e ->
       acc >>= fun acc ->
@@ -246,7 +234,7 @@ let list_map_res f l =
 
 
 let list_map_resi f l =
-  List.fold_lefti (fun acc i e ->
+  list_fold_lefti (fun acc i e ->
       acc >>= fun acc ->
       f i e >>= fun e ->
       OK (acc@[e])
@@ -275,25 +263,27 @@ let rec take n l =
     | a::r -> a::take (n-1) r
 
 let char_list_of_string l : char list =
-  String.to_list l
+  List.of_seq (String.to_seq l)
 
 let string_of_char_list cl =
-  String.of_list cl
+  String.of_seq (List.to_seq cl)
 
-let string_of_char_set s =
-  string_of_char_list (Set.to_list s)
+let string_of_char_set (s : CharSet.t) =
+  string_of_char_list (CharSet.to_list s)
 
 let string_of_int_list l =
   Printf.sprintf "%s" (String.concat "_" (List.map string_of_int l))
 
-let string_of_int_set s =
-  string_of_int_list (Set.to_list s)
+let string_of_int_set (s : IntSet.t) =
+  string_of_int_list (IntSet.to_list s)
 
-let string_of_string_set v =
-  String.concat ", " (Set.to_list v)
+let string_of_string_set (v : StringSet.t) =
+  String.concat ", " (StringSet.to_list v)
 
-let string_of_int_int_set v =
-  String.concat ", " (List.map (fun (x,y) -> Printf.sprintf "(%d,%d)" x y) (Set.to_list v))
+let string_of_int_int_set (v : IntPairSet.t) =
+  String.concat ", "
+    (List.map (fun (x,y) -> Printf.sprintf "(%d,%d)" x y)
+       (IntPairSet.to_list v))
 
 let string_of_int_option v =
   match v with

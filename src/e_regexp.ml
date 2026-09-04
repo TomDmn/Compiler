@@ -1,45 +1,43 @@
-open Batteries
 open Symbols
 open Utils
-(* Expressions régulières *)
+module Set = Collections.CharSet
+(* Regular Expressions*)
 
-(* Nous modélisons les expressions régulières avec le type suivant.
+(* We model regular expressions with the following type.
 
-   Une expressions régulière est soit :
-   - [Eps] qui dénote l'expressions vide.
-   - [Charset cs] dénote l'expression régulière qui matche l'ensemble
-     des caractères de l'ensemble [cs].
-   - [Cat(r1,r2)] dénote la concaténation de [r1] et [r2] : reconnaît les mots
-     [uv] tels que [u] appartient à [r1] et [v] appartient à [r2].
-   - [Alt(r1,r2)] dénote un choix entre [r1] et [r2] : reconnaît les mots reconnus
-     par [r1] et les mots reconnus par [r2].
-   - [Star r] dénote la répétition 0, 1 ou plusieurs fois de l'expression [r].
+   A regular expression is either:
+   - [Eps] denotes the empty word.
+   - [Charset cs] denotes the regular expression matching any character in
+     the set [cs].
+   - [Cat(r1,r2)] denotes the concatenation of [r1] and [r2]: recognizes the words
+     [uv] such that [u] belongs to [r1] and [v] belongs to [r2].
+   - [Alt(r1,r2)] denotes a choice between [r1] and [r2]: it recognizes words
+     recognized by either [r1] or [r2].
+   - [Star r] denotes the repetition 0, 1 or more times of the expression [r].
 *)
-
-type 'a set = 'a Set.t
 
 type regexp =
   | Eps
-  | Charset of char set
+  | Charset of Set.t
   | Cat of regexp * regexp
   | Alt of regexp * regexp
   | Star of regexp
 
-(* [char_regexp c] reconnaît le caractère [c] uniquement. *)
+(* [char_regexp c] recognizes the character [c] only.*)
 let char_regexp c = Charset (Set.singleton c)
 
-(* [char_range l] reconnaît l'ensemble des caractères de [l]. *)
+(* [char_range l] recognizes all the characters of [l].*)
 let char_range (l: char list) =
   Charset (Set.of_list l)
 
-(* [str_regexp s] reconnaît la chaîne de caractère [s]. *)
+(* [str_regexp s] recognizes the character string [s].*)
 let str_regexp (s: char list) =
   List.fold_right (fun c reg -> Cat(Charset (Set.singleton c), reg)) s Eps
 
-(* [plus r] reconnaît 1 fois ou plus l'expression [r]. *)
+(* [plus r] recognizes the expression [r] 1 or more times.*)
 let plus r = Cat(r,Star r)
 
-(* Fonction d'affichage. Peut être utile pour déboguer. *)
+(* Display function. May be useful for debugging.*)
 let rec string_of_regexp r =
   match r with
     Eps -> "Eps"
@@ -56,14 +54,14 @@ let uppercase_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 let digits = "0123456789"
 let other_characters = "?!=<>_ :;,{}()[]^`-+*/%@\n\t\x00.\"\'\\|~#$&"
 
-(* L'opérateur ^ dénote la concaténation des chaînes de caractères. *)
+(* The ^ operator denotes the concatenation of character strings.*)
 let alphabet = char_list_of_string (lowercase_letters ^ uppercase_letters ^ digits ^ other_characters)
 let letter_regexp = char_range (char_list_of_string (uppercase_letters ^ lowercase_letters))
 let digit_regexp = char_range (char_list_of_string digits)
 let identifier_material = char_range (char_list_of_string (uppercase_letters ^ lowercase_letters ^ digits ^ "_"))
 let keyword_regexp s = str_regexp (char_list_of_string s)
 
-(* La liste des expressions régulières permettant d'identifier les tokens du langage E *)
+(* The list of regular expressions used to identify E language tokens*)
 let list_regexp : (regexp * (string -> token option)) list =
   [
     (keyword_regexp "while",    fun _ -> Some (SYM_WHILE));
@@ -140,9 +138,11 @@ let list_regexp : (regexp * (string -> token option)) list =
               )
             ),
                char_regexp '"')),
-     fun s -> Some (SYM_STRING (Stdlib.Scanf.unescaped (String.slice ~first:1 ~last:(-1) s))));
+     fun s ->
+       Some
+         (SYM_STRING
+            (Stdlib.Scanf.unescaped (String.sub s 1 (String.length s - 2)))));
     (char_range (char_list_of_string " \t\n"), fun _ -> None);
     (plus digit_regexp, fun s -> Some (SYM_INTEGER (int_of_string s)));
     (Eps, fun _ -> Some (SYM_EOF))
   ]
-

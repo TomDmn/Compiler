@@ -1,5 +1,3 @@
-open Batteries
-open BatList
 open Symbols
 open Parser
 open Ast
@@ -152,7 +150,7 @@ let exec_rv_prog ltl basename oc rvp heapsize params =
     try
       let all_but_last = l |> List.rev |> List.tl |> List.rev in
       all_but_last |> print_list (fun oc -> Format.fprintf oc "%s") "" "\n" "" oc;
-      let ret = l |> List.last |> int_of_string in
+      let ret = l |> List.rev |> List.hd |> int_of_string in
       OK (Some ret)
     with _ -> OK None
 

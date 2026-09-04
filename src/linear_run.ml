@@ -1,5 +1,3 @@
-open Batteries
-open BatList
 open Prog
 open Elang
 open Cfg
@@ -15,15 +13,15 @@ open Utils
 let rec exec_linear_instr oc lp fname f st (i: rtl_instr) =
   match i with
   | Rbinop (b, rd, rs1, rs2) ->
-    begin match Hashtbl.find_option st.regs rs1,
-                Hashtbl.find_option st.regs rs2 with
+    begin match Hashtbl.find_opt st.regs rs1,
+                Hashtbl.find_opt st.regs rs2 with
     | Some v1, Some v2 ->
                Hashtbl.replace st.regs rd (eval_binop b v1 v2);
       OK (None, st)
     | _, _ -> Error (Printf.sprintf "Binop applied on undefined registers (%s and %s)" (print_reg rs1) (print_reg rs2))
     end
   | Runop (u, rd, rs) ->
-    begin match Hashtbl.find_option st.regs rs with
+    begin match Hashtbl.find_opt st.regs rs with
       | Some v ->
       Hashtbl.replace st.regs rd (eval_unop u v);
       OK (None, st)
@@ -33,29 +31,29 @@ let rec exec_linear_instr oc lp fname f st (i: rtl_instr) =
     Hashtbl.replace st.regs rd i;
     OK (None, st)
   | Rbranch (cmp, r1, r2, s1) ->
-    begin match Hashtbl.find_option st.regs r1,
-                Hashtbl.find_option st.regs r2 with
+    begin match Hashtbl.find_opt st.regs r1,
+                Hashtbl.find_opt st.regs r2 with
     | Some v1, Some v2 ->
       if eval_rtl_cmp cmp v1 v2 then exec_linear_instr_at oc lp fname f st s1 else OK (None, st)
     | _, _ -> Error (Printf.sprintf "Branching on undefined registers (%s and %s)" (print_reg r1) (print_reg r2))
     end
   | Rjmp s -> exec_linear_instr_at oc lp fname f st s
   | Rmov (rd, rs) ->
-    begin match Hashtbl.find_option st.regs rs with
+    begin match Hashtbl.find_opt st.regs rs with
     | Some s ->
       Hashtbl.replace st.regs rd s;
       OK (None, st)
     | _ -> Error (Printf.sprintf "Mov on undefined register (%s)" (print_reg rs))
     end
   | Rprint r ->
-    begin match Hashtbl.find_option st.regs r with
+    begin match Hashtbl.find_opt st.regs r with
       | Some s ->
         Format.fprintf oc "%d\n" s;
         OK (None, st)
       | _ -> Error (Printf.sprintf "Print on undefined register (%s)" (print_reg r))
     end
   | Rret r ->
-    begin match Hashtbl.find_option st.regs r with
+    begin match Hashtbl.find_opt st.regs r with
       | Some s -> OK (Some s, st)
       | _ -> Error (Printf.sprintf "Ret on undefined register (%s)" (print_reg r))
     end

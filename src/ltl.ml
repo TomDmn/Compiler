@@ -1,6 +1,3 @@
-open Batteries
-open BatList
-open BatBuffer
 open Elang
 open Rtl
 open Regalloc

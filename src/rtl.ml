@@ -1,6 +1,6 @@
-open Batteries
 open Elang
 open Cfg
+module Set = Collections.IntSet
 
 type reg = int
 

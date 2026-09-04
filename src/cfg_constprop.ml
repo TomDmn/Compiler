@@ -1,4 +1,3 @@
-open Batteries
 open Cfg
 open Elang_run
 open Prog
@@ -38,7 +37,7 @@ let constant_propagation_instr (i: cfg_node) : cfg_node =
     i
 
 let constant_propagation_fun ({ cfgfunbody; _ } as f: cfg_fun) =
-  let ht = Hashtbl.map (fun _ m ->
+  let ht = Collections.hashtbl_map (fun _ m ->
       constant_propagation_instr m
     ) cfgfunbody in
   { f with cfgfunbody = ht}

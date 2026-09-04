@@ -3,7 +3,6 @@ open Elang
 open Prog
 open Report
 open Options
-open Batteries
 open Elang_print
 open Utils
 

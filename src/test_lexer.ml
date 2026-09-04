@@ -1,8 +1,9 @@
 open E_regexp
 open Lexer_generator
-open Batteries
 open Utils
 open Symbols
+module Set = Collections.IntSet
+module CharSet = Collections.CharSet
 
 let nfa_accepts (n: nfa) (w: char list) : bool =
   let rec trav vis s =
@@ -12,21 +13,25 @@ let nfa_accepts (n: nfa) (w: char list) : bool =
   let ec s = trav Set.empty s in
   let ecs ls = Set.fold (fun q -> Set.union (ec q)) ls Set.empty in
 
-  let rec walk (q: int set) (w: char list) =
+  let rec walk (q: Set.t) (w: char list) =
     let q = ecs q in
     match w with
     | [] -> Set.exists (fun q -> List.mem q (List.map fst n.nfa_final)) q
     | c::w ->
       let q' =
-        Set.fold Set.union (Set.map (fun q ->
-            (List.filter_map
-               (fun (cso,q') ->
-                  match cso with
-                  | None -> None
-                  | Some cs -> if Set.mem c cs then Some q' else None
-               )
-               (n.nfa_step q)) |> Set.of_list
-          ) q) Set.empty
+        Set.fold
+          (fun q acc ->
+             let successors =
+               List.filter_map
+                 (fun (cso,q') ->
+                    match cso with
+                    | None -> None
+                    | Some cs -> if CharSet.mem c cs then Some q' else None)
+                 (n.nfa_step q)
+               |> Set.of_list
+             in
+             Set.union successors acc)
+          q Set.empty
 
       in walk q' w in
   walk (Set.of_list n.nfa_initial) w
@@ -40,8 +45,8 @@ let () =
      fun s -> Some (SYM_IDENTIFIER s));
 
   ] in
-  (* Décommentez la ligne suivante pour tester sur la vraie liste d'expressions
-     régulières. *)
+  (* Uncomment the following line to test with the actual list of regular
+     expressions. *)
   (* let regexp_list = list_regexp in *)
   List.iteri
     (fun i (rg, _) -> Printf.printf "%d: %s\n" i (string_of_regexp rg))
@@ -67,10 +72,10 @@ let () =
       nfa_final = [(3, fun s -> None); (4, fun s -> None)];
       nfa_step = fun q ->
         match q with
-        | 1 -> [(Some (Set.singleton '0'), 2); (None, 3)]
-        | 2 -> [(Some (Set.singleton '1'), 2); (Some (Set.singleton '1'), 4)]
-        | 3 -> [(Some (Set.singleton '0'), 4); (None, 2)]
-        | 4 -> [(Some (Set.singleton '0'), 2)]
+        | 1 -> [(Some (CharSet.singleton '0'), 2); (None, 3)]
+        | 2 -> [(Some (CharSet.singleton '1'), 2); (Some (CharSet.singleton '1'), 4)]
+        | 3 -> [(Some (CharSet.singleton '0'), 4); (None, 2)]
+        | 4 -> [(Some (CharSet.singleton '0'), 2)]
         | _ -> []
 
     } in
@@ -113,21 +118,21 @@ let () =
   expect_token_option "min_priority 4" (min_priority []) None;
 
   let set_incl s1 s2 =
-    Set.for_all (fun s -> Set.exists (Set.equal s) s2) s1
+    List.for_all (fun s -> List.exists (Set.equal s) s2) s1
   in
 
   let set_eq s1 s2 = set_incl s1 s2 && set_incl s2 s1 in
 
   let string_of_int_set_set s =
-    Set.map (fun s ->
-        Printf.sprintf "{%s}" (String.concat "," (Set.to_list (Set.map string_of_int s)))
+    List.map (fun s ->
+        Printf.sprintf "{%s}"
+          (String.concat "," (List.map string_of_int (Set.to_list s)))
       ) s
-    |> Set.to_list
     |> String.concat ", "
     |> Printf.sprintf "{%s}"
   in
 
-  let expect_set_set str (set_got : int set set) (set_exp : int set set) =
+  let expect_set_set str (set_got : Set.t list) (set_exp : Set.t list) =
     if set_eq set_got set_exp
     then Printf.printf "[OK] %s\n" str
     else Printf.printf "[KO] %s : got %s, expected %s\n" str
@@ -137,7 +142,8 @@ let () =
 
   let table = Hashtbl.create 10 in
   build_dfa_table table n (dfa_initial_state n);
-  expect_set_set "dfa states" (Hashtbl.keys table |> Set.of_enum) (Set.of_list [Set.of_list [1;2;3]; Set.of_list [2;4]; Set.of_list [2]]);
+  expect_set_set "dfa states" (Hashtbl.to_seq_keys table |> List.of_seq)
+    [Set.of_list [1;2;3]; Set.of_list [2;4]; Set.of_list [2]];
 
   let expect_nfa_accepts n s b =
     let r = nfa_accepts n (char_list_of_string s) in

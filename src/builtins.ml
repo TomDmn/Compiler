@@ -1,5 +1,3 @@
-open Batteries
-open BatList
 open Utils
 
 let dump_int oc i =
@@ -11,12 +9,12 @@ let dump_list pp oc l =
 let rec read_chars_rec mem addr (chars_read) =
   Mem.read_char mem addr  >>= fun (v) ->
   if v = 0 then
-    (OK (rev chars_read))
+    (OK (List.rev chars_read))
   else read_chars_rec mem (addr + 1) (v::chars_read)
 
 let read_string mem addr =
   read_chars_rec mem addr ([]) >>= fun (s) ->
-  let s = s |> List.map char_of_int |> String.of_list in
+  let s = s |> List.map char_of_int |> List.to_seq |> String.of_seq in
   OK (s)
 
 let dump_mem oc mem arg =

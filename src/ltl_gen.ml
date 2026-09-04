@@ -1,4 +1,3 @@
-open Batteries
 open Rtl
 open Linear
 open Ltl
@@ -9,6 +8,7 @@ open Regalloc
 open Linear_liveness
 open Report
 open Options
+module Set = Collections.IntSet
 
 (* list of registers used to store arguments. [a0-a7] *)
 let arg_registers =
@@ -53,7 +53,7 @@ let make_loc_mov src dst =
 (* load_loc tmp allocation r = (l, r'). Loads the equivalent of RTL register r
    in a LTL register r'. tmpis used if necessary. *)
 let load_loc tmp allocation r =
-  match Hashtbl.find_option allocation r with
+  match Hashtbl.find_opt allocation r with
   | None ->
     Error (Format.sprintf "Unable to allocate RTL register r%d." r)
   | Some (Stk o) -> OK ([LLoad(tmp, reg_fp, (Archi.wordsize ()) * o, (archi_mas ()))], tmp)
@@ -62,7 +62,7 @@ let load_loc tmp allocation r =
 (* store_loc tmp allocation r = (l, r'). I want to write in RTL register r.
    Tells me that I just have to write to LTL register r' and execute l. *)
 let store_loc tmp allocation r =
-  match Hashtbl.find_option allocation r with
+  match Hashtbl.find_opt allocation r with
   | None ->
     Error (Format.sprintf "Unable to allocate RTL register r%d." r)
   | Some (Stk o) -> OK ([LStore(reg_fp, (Archi.wordsize ()) * o, tmp, (archi_mas ()))], tmp)
@@ -110,7 +110,7 @@ let num_parameters_passed_on_stack regs =
 let overwritten_args rargs allocation =
 
   (* [ltl_args] contains the locations of RTL args after allocation. *)
-    list_map_res (fun r -> match Hashtbl.find_option allocation r with
+    list_map_res (fun r -> match Hashtbl.find_opt allocation r with
         | None -> Error (Format.sprintf
                               "overwritten_args: Couldn't allocate register r%d."
                               r)
@@ -118,7 +118,7 @@ let overwritten_args rargs allocation =
       ) rargs >>= fun ltl_args ->
 
   let (overwritten, read_overwritten) =
-    List.fold_lefti (fun (overwritten, read_overwritten) i (src: loc) ->
+    Collections.list_fold_lefti (fun (overwritten, read_overwritten) i (src: loc) ->
         (* [overwritten] contains the list of registers that have been written
            to.
 
@@ -147,7 +147,7 @@ let overwritten_args rargs allocation =
    relative to reg_fp we may save more registers if needed. *)
 let pass_parameters rargs allocation arg_saved =
   (* LTL locations corresponding to RTL arguments.  *)
-  list_map_res (fun r -> match Hashtbl.find_option allocation r with
+  list_map_res (fun r -> match Hashtbl.find_opt allocation r with
       | None ->
         Error (Format.sprintf
                  "pass_parameters: Couldn't allocate register r%d." r)
@@ -185,7 +185,7 @@ let pass_parameters rargs allocation arg_saved =
 
      - [npush] is the number of arguments that were pushed to the stack. *)
 
-  List.fold_lefti (fun acc i (src: loc) ->
+  Collections.list_fold_lefti (fun acc i (src: loc) ->
       acc >>= fun (overwritten, instrs, pushes, npush) ->
       reloc_loc overwritten src >>= fun src ->
       let (overwritten, l,pushes, npush) =
@@ -246,7 +246,7 @@ let written_rtl_regs (l: rtl_instr list) =
 
 let rtl_to_ltl_registers allocation l =
   Set.filter_map (fun rtlreg ->
-      match Hashtbl.find_option allocation rtlreg with
+      match Hashtbl.find_opt allocation rtlreg with
       | Some (Stk ofs) -> None
       | None -> None
       | Some (Reg r) -> Some r) l
@@ -263,7 +263,7 @@ let caller_save live_out allocation rargs =
   let live_after_ltl = live_after |> rtl_to_ltl_registers allocation in
   overwritten_args rargs allocation >>= fun overwritten_args_tosave ->
   let l = Set.union live_after_ltl overwritten_args_tosave in
-  OK (Set.intersect l (Set.of_list (arg_registers @ reg_tmp)))
+  OK (Set.inter l (Set.of_list (arg_registers @ reg_tmp)))
 
 (* This generates LTL instructions for a given Linear/RTL instruction. In most
    cases, the transformation amounts to 'loading' RTL registers in LTL locations
@@ -307,7 +307,7 @@ let ltl_instrs_of_linear_instr fname live_out allocation
         (range 32)
         (- (numspilled+1)) in
     let parameter_passing =
-      match Hashtbl.find_option allocation r with
+      match Hashtbl.find_opt allocation r with
       | None -> Error (Format.sprintf "Could not find allocation for register %d\n" r)
       | Some (Reg rs) -> OK [LMov(reg_a0, rs)]
       | Some (Stk o) -> OK [LLoad(reg_a0, reg_fp, (Archi.wordsize ()) * o, (archi_mas ()))]
@@ -354,7 +354,7 @@ let ltl_fun_of_linear_fun linprog
       (Set.add reg_fp
          (written_ltl_regs fname linearfunbody allocation)) in
   let callee_saved_regs =
-    Set.intersect (Set.of_list callee_saved) written_regs in
+    Set.inter (Set.of_list callee_saved) written_regs in
   List.iteri (fun i pr ->
       Hashtbl.replace allocation pr
         (retrieve_nth_arg i (Set.cardinal callee_saved_regs))
@@ -378,7 +378,7 @@ let ltl_fun_of_linear_fun linprog
                                 (List.rev (Set.to_list callee_saved_regs))) @
                  [LJmpr reg_ra] in
   list_map_resi (fun i ->
-      ltl_instrs_of_linear_instr fname (Hashtbl.find_default live_out i Set.empty)
+      ltl_instrs_of_linear_instr fname (Collections.hashtbl_find_default live_out i Set.empty)
         allocation numspilled epilogue_label) linearfunbody
   >>= fun l ->
   let instrs = List.concat l 
@@ -387,7 +387,7 @@ let ltl_fun_of_linear_fun linprog
     ltlfunargs = List.length linearfunargs;
     ltlfunbody = prologue @ instrs @ epilogue;
     ltlfuninfo = linearfuninfo;
-    ltlregalloc = Hashtbl.bindings allocation;
+    ltlregalloc = List.of_seq (Hashtbl.to_seq allocation);
   }
 
 
@@ -403,12 +403,12 @@ let ltl_prog_of_linear lp =
   let prog = list_map_res (function
         (fname, Gfun f) ->
         let f_alloc =
-          match Hashtbl.find_option allocations fname with
+          match Hashtbl.find_opt allocations fname with
           | None -> (Hashtbl.create 0, 0)
           | Some (rig, allocation, next_stack_slot) -> (allocation, - next_stack_slot - 1)
         in
         let f_lives =
-          match Hashtbl.find_option lives fname with
+          match Hashtbl.find_opt lives fname with
           | None -> (Hashtbl.create 0, Hashtbl.create 0)
           | Some x -> x
         in

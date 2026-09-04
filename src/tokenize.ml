@@ -1,4 +1,3 @@
-open Batteries
 open Lexer_generator
 open Report
 open Utils
