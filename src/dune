@@ -5,6 +5,12 @@
 )
 (ocamllex lexer)
 
+(rule
+ (target generated_parser.ml)
+ (deps ../expr_grammar_action.g)
+ (action
+  (run %{bin:alpaga} -g %{dep:../expr_grammar_action.g} -pml %{target})))
+
 (executables
  (names main test_lexer)
  (libraries
