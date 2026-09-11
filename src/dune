@@ -9,10 +9,38 @@
  (target generated_parser.ml)
  (deps ../expr_grammar_action.g)
  (action
-  (run %{bin:alpaga} -g %{dep:../expr_grammar_action.g} -pml %{target})))
+  (run %{bin:alpaga} -g %{dep:../expr_grammar_action.g} -pml %{target} -html ../grammar.html)))
+
+(rule
+  (target config.ml)
+   (deps
+    ../configure
+    ../opts.sh
+    (env_var ECOMP_RUNTIME_DIR)
+    (source_tree ../runtime))
+    (action
+     (chdir ..
+      (bash "source ./opts.sh && exec ./configure $CONF_OPTS")
+    ))
+)
+
+(rule
+ (target report_assets.ml)
+ (deps ecomp-report-style.css ecomp-report.js)
+ (action
+  (with-stdout-to %{target}
+   (progn
+    (echo "let css = {ecomp_css|")
+    (cat ecomp-report-style.css)
+    (echo "|ecomp_css}")
+    (echo "let javascript = {ecomp_js|")
+    (cat ecomp-report.js)
+    (echo "|ecomp_js}")))))
 
 (executables
- (names main test_lexer)
+ (names main runner report_main test_lexer)
+ (public_names ecomp ecomp-run ecomp-report -)
+ (package ecomp)
  (libraries
    yojson
    lwt

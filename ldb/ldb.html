@@ -1,76 +1,108 @@
 <!DOCTYPE html>
-<html>
-<meta charset="utf-8">
-
+<html lang="en">
 <head>
-    <link rel="stylesheet" type="text/css" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LTL debugger</title>
+  <link rel="stylesheet" type="text/css" href="style.css">
 </head>
-
 <body>
-    <div class="title">
-        <h2>LTL Trace Explorer : <span id="traceName"></span> </h2>
+  <header class="app-header">
+    <div>
+      <div class="eyebrow">Ecomp interactive debugger</div>
+      <h1>LTL trace explorer</h1>
+      <p id="traceName" class="trace-name">Waiting for a program…</p>
     </div>
-    <div id="step_navigator">
-        Parameters : <input type="text" id="init_params" />
-        <input type="button" value="Init" id="btn_init" />
-        <input type="button" id="quit_btn" value="Quit" />
-        <input type="button" id="graph_btn" value="Draw graph" />
-        <input type="button" id="prev_bp" value="&#8606;" />
-        &nbsp;
-        <input type="button" id="prev_step" value="&larr;" />
-        &nbsp;
-        <span id="curstep"></span> of <span id="total_num_steps"></span>
-        &nbsp;
-        <input type="button" id="next_step" value=" &rarr;" />
-        &nbsp;
-        <input type="button" id="next_bp" value="&#8608;" />
-        <input type="button" id="play" value="Play" />
-        &nbsp;
-        <input type="button" id="pause" value="Pause" />
+    <button type="button" id="connection_status" class="connection-status connecting"
+            title="Connecting to ecomp-run" disabled>
+      <span class="status-dot" aria-hidden="true"></span>
+      <span class="status-label">Connecting</span>
+    </button>
+  </header>
+
+  <section id="step_navigator" class="toolbar" aria-label="Debugger controls">
+    <label class="parameter-field" for="init_params">
+      <span>Arguments</span>
+      <input type="text" id="init_params" placeholder="1 2 3" autocomplete="off">
+    </label>
+    <button type="button" id="btn_init" class="text-button" title="Restart with these arguments">
+      <span aria-hidden="true">↻</span> Restart
+    </button>
+    <div class="transport" aria-label="Trace navigation">
+      <button type="button" id="prev_bp" class="icon-button" title="Previous breakpoint (↑)" aria-label="Previous breakpoint">⇤</button>
+      <button type="button" id="prev_step" class="icon-button" title="Previous instruction (←)" aria-label="Previous instruction">←</button>
+      <button type="button" id="play" class="icon-button primary" title="Play (Space)" aria-label="Play">▶</button>
+      <button type="button" id="pause" class="icon-button" title="Pause (Space)" aria-label="Pause">Ⅱ</button>
+      <button type="button" id="next_step" class="icon-button" title="Next instruction (→)" aria-label="Next instruction">→</button>
+      <button type="button" id="next_bp" class="icon-button" title="Next breakpoint (↓)" aria-label="Next breakpoint">⇥</button>
     </div>
-
-    <div id="body">
-
-        <!-- <div id="left"> -->
-     
-        <div id="code"></div>
-        <div id="cfg"><h1>CFG</h1><div id="cfg_cont"></div> </div>
-        <!-- </div> -->
-        <div id="output"></div>
-        <div id="log"></div>
-        <!-- <div id="right-panel"> -->
-        <div id="state">
-            <div id="regstate"></div>
-            <div id="memstate"></div>
-        </div>
-            <div id="expr">
-                <input type="text" id="expr_input" size="20" /><br>
-                Result: <span id="expr_res"></span><hr>
-                <div id="subexprs"></div>
-            </div>
-            <div id="legend">
-                <!-- <h3>Legend</h3>
-                     <h4>State</h4>
-                     <span class="touched">Address written to</span><br>
-                     <span class="read">Address read from</span><br>
-                     <h4>Instructions</h4>
-                     <span class="break">Instruction with breakpoint</span><br>
-                     <span class="current">Instruction to be executed next</span><br>
-                     <span class="break current">Next instruction has a breakpoint</span><br> -->
-                <h4>Vars</h4>
-                <div id="vars"></div>
-                <h4>CFG</h4>
-                <div id="cfg_legend"></div>
-                <h4>Status</h4>
-                <div id="status"></div>
-            </div>
-            <!-- </div> -->
+    <div class="step-counter" title="Current and latest recorded execution steps">
+      <span>Step</span><strong id="curstep">0</strong><span class="step-divider">/</span><span id="total_num_steps">0</span>
     </div>
-    <script src="d3.v5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
-    <script src="expr.js"></script>
-    <script src="ldb.js"></script>
+    <button type="button" id="graph_btn" class="text-button" title="Build the control-flow graph from the trace">
+      <span aria-hidden="true">◇</span> Trace graph
+    </button>
+    <button type="button" id="quit_btn" class="icon-button danger" title="Stop the debugger" aria-label="Stop the debugger">×</button>
+  </section>
 
+  <main id="body" class="workspace">
+    <section class="panel code-panel">
+      <header class="panel-header">
+        <div><span class="panel-kicker">Program</span><h2>LTL instructions</h2></div>
+        <span class="panel-hint">Click a line to toggle a breakpoint</span>
+      </header>
+      <div id="code" class="code-list"><div class="empty-state">Waiting for LTL code…</div></div>
+    </section>
+
+    <div class="right-column">
+      <section id="state" class="panel state-panel">
+        <header class="panel-header">
+          <div><span class="panel-kicker">Machine state</span><h2>Registers &amp; memory</h2></div>
+        </header>
+        <div id="regstate"></div>
+        <div id="memstate"></div>
+      </section>
+
+      <div class="card-grid">
+        <section class="panel compact-panel">
+          <header class="panel-header"><div><span class="panel-kicker">Program I/O</span><h2>Output</h2></div></header>
+          <div id="output" class="stream-content"><span class="empty-state">empty</span></div>
+        </section>
+        <section class="panel compact-panel">
+          <header class="panel-header"><div><span class="panel-kicker">Debugger</span><h2>Log</h2></div></header>
+          <div id="log" class="stream-content"><span class="empty-state">empty</span></div>
+        </section>
+      </div>
+
+      <div class="card-grid">
+        <section id="expr" class="panel compact-panel">
+          <header class="panel-header"><div><span class="panel-kicker">Inspector</span><h2>Watch expression</h2></div></header>
+          <label class="watch-field" for="expr_input">Expression</label>
+          <input type="text" id="expr_input" placeholder="mem(sp)" autocomplete="off">
+          <div class="watch-result"><span>Result</span><strong id="expr_res">—</strong></div>
+          <div id="subexprs"></div>
+        </section>
+        <section id="legend" class="panel compact-panel">
+          <header class="panel-header"><div><span class="panel-kicker">Symbols</span><h2>Source variables</h2></div></header>
+          <div id="vars"><span class="empty-state">Waiting for symbol data…</span></div>
+          <div id="cfg_legend" class="cfg-legend"></div>
+          <div id="status" class="debug-status">Debugger is starting…</div>
+        </section>
+      </div>
+
+      <section id="cfg" class="panel cfg-panel">
+        <header class="panel-header">
+          <div><span class="panel-kicker">Executed path</span><h2>Control-flow graph</h2></div>
+          <span class="panel-hint">Use “Trace graph” after stepping</span>
+        </header>
+        <div id="cfg_cont"><div class="empty-state">No trace graph yet.</div></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="d3.v5.min.js"></script>
+  <script src="vis.min.js"></script>
+  <script src="expr.js"></script>
+  <script src="ldb.js"></script>
 </body>
-
 </html>

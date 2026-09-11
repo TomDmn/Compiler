@@ -1,0 +1,29 @@
+opam-version: "2.0"
+synopsis: "Educational compiler and interpreters for the E language"
+description: """
+Ecomp is an educational compiler from the E language to RISC-V. The package
+installs the ecomp compiler, ecomp-run intermediate-language runner, and
+ecomp-report HTML report generator.
+"""
+maintainer: ["Pierre Wilke <pierre.wilke@centralesupelec.fr>"]
+authors: ["Pierre Wilke <pierre.wilke@centralesupelec.fr>"]
+homepage: "https://gitlab-research.centralesupelec.fr/cidre/enseignements/nouveau-cursus/infosec-1/st7-compilation/ecomp"
+bug-reports: "https://gitlab-research.centralesupelec.fr/cidre/enseignements/nouveau-cursus/infosec-1/st7-compilation/ecomp/-/issues"
+dev-repo: "git+https://gitlab-research.centralesupelec.fr/cidre/enseignements/nouveau-cursus/infosec-1/st7-compilation/ecomp.git"
+depends: [
+  "ocaml" {>= "5.3"}
+  "dune" {>= "2.9"}
+  "alpaga" {build}
+  "menhir" {build}
+  "menhirLib"
+  "yojson"
+  "lwt"
+  "logs"
+  "lwt_log"
+  "websocket"
+  "websocket-lwt-unix"
+]
+build: [
+  ["dune" "subst"] {dev}
+  ["env" "ECOMP_RUNTIME_DIR=%{share}%/ecomp" "dune" "build" "-p" name "-j" jobs]
+]

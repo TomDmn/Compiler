@@ -59,69 +59,73 @@ let instrsuffix_of_size sz =
 let dump_riscv_instr oc (i: ltl_instr) =
   match i with
   | LAddi(rd, rs, i) ->
-    Format.fprintf oc "addi %s, %s, %d\n" (print_reg rd) (print_reg rs) i
+    Format.fprintf oc "  addi %s, %s, %d\n" (print_reg rd) (print_reg rs) i
   | LSubi(rd, rs, i) ->
-    Format.fprintf oc "addi %s, %s, %d\n" (print_reg rd) (print_reg rs) (-i)
+    Format.fprintf oc "  addi %s, %s, %d\n" (print_reg rd) (print_reg rs) (-i)
   | LBinop(b, rd, rs1, rs2) ->
     begin match b with
      | Elang.Eclt ->
-        Format.fprintf oc "slt %s, %s, %s\n"
+        Format.fprintf oc "  slt %s, %s, %s\n"
           (print_reg rd) (print_reg rs1) (print_reg rs2)
       | Elang.Ecgt ->
-        Format.fprintf oc "slt %s, %s, %s\n"
+        Format.fprintf oc "  slt %s, %s, %s\n"
           (print_reg rd) (print_reg rs2) (print_reg rs1)
       | Elang.Ecle ->
         (* 'rd <- rs1 <= rs2' == 'rd <- rs2 < rs1; rd <- seqz rd' *)
-        Format.fprintf oc "slt %s, %s, %s\n"
+        Format.fprintf oc "  slt %s, %s, %s\n"
           (print_reg rd) (print_reg rs2) (print_reg rs1);
-        Format.fprintf oc "seqz %s, %s\n"
+        Format.fprintf oc "  seqz %s, %s\n"
           (print_reg rd) (print_reg rd)
       | Elang.Ecge ->
-        Format.fprintf oc "slt %s, %s, %s\n"
+        Format.fprintf oc "  slt %s, %s, %s\n"
           (print_reg rd) (print_reg rs1) (print_reg rs2);
-        Format.fprintf oc "seqz %s, %s\n"
+        Format.fprintf oc "  seqz %s, %s\n"
           (print_reg rd) (print_reg rd)
       | Elang.Eceq ->
-        Format.fprintf oc "sub %s, %s, %s\n"
+        Format.fprintf oc "  sub %s, %s, %s\n"
           (print_reg rd) (print_reg rs1) (print_reg rs2);
-        Format.fprintf oc "seqz %s, %s\n"
+        Format.fprintf oc "  seqz %s, %s\n"
           (print_reg rd) (print_reg rd)
       | Elang.Ecne ->
-        Format.fprintf oc "sub %s, %s, %s\n"
+        Format.fprintf oc "  sub %s, %s, %s\n"
           (print_reg rd) (print_reg rs1) (print_reg rs2);
-        Format.fprintf oc "snez %s, %s\n"
+        Format.fprintf oc "  snez %s, %s\n"
           (print_reg rd) (print_reg rd)
-      | _ -> Format.fprintf oc "%s %s, %s, %s\n"
+      | _ -> Format.fprintf oc "  %s %s, %s, %s\n"
                (print_binop b) (print_reg rd) (print_reg rs1) (print_reg rs2)
     end
   | LUnop(u, rd, rs) ->
-    Format.fprintf oc "%s %s, %s\n"
+    Format.fprintf oc "  %s %s, %s\n"
           (print_unop u) (print_reg rd) (print_reg rs)
   | LStore(rt, i, rs, sz) ->
     let sz = instrsuffix_of_size sz in
-    Format.fprintf oc "s%c %s, %d(%s)\n"
+    Format.fprintf oc "  s%c %s, %d(%s)\n"
           sz (print_reg rs) i (print_reg rt)
   | LLoad(rd, rt, i, sz) ->
     let sz = (instrsuffix_of_size sz) in
-    Format.fprintf oc "l%c %s, %d(%s)\n"
+    Format.fprintf oc "  l%c %s, %d(%s)\n"
       sz (print_reg rd) i (print_reg rt)
   | LMov(rd, rs) ->
-    Format.fprintf oc "mv %s, %s\n" (print_reg rd) (print_reg rs)
+    Format.fprintf oc "  mv %s, %s\n" (print_reg rd) (print_reg rs)
   | LLabel l ->
     Format.fprintf oc "%s:\n" l
-  | LJmp l -> Format.fprintf oc "j %s\n" l
-  | LJmpr r -> Format.fprintf oc "jr %s\n" (print_reg r)
-  | LConst (rd, i) -> Format.fprintf oc "li %s, %d\n\n" (print_reg rd) i
-  | LComment l -> Format.fprintf oc "# %s\n" l
+  | LJmp l -> Format.fprintf oc "  j %s\n" l
+  | LJmpr r -> Format.fprintf oc "  jr %s\n" (print_reg r)
+  | LConst (rd, i) -> Format.fprintf oc "  li %s, %d\n" (print_reg rd) i
+  | LComment l -> Format.fprintf oc "  # %s\n" l
+  | LGroupStart Prologue -> Format.fprintf oc "  # Prologue\n"
+  | LGroupStart (LinearSource source) ->
+    Format.fprintf oc "  # Linear source: %s\n" source
+  | LGroupStart Epilogue -> Format.fprintf oc "  # Epilogue\n"
   | LBranch(cmp, rs1, rs2, s) ->
-    Format.fprintf oc "%s %s, %s, %s\n"
+    Format.fprintf oc "  %s %s, %s, %s\n"
       (riscv_of_cmp cmp) (print_reg rs1) (print_reg rs2) s
   | LCall fname ->
-    Format.fprintf oc "jal ra, %s\n" fname
-  | LHalt -> Format.fprintf oc "halt\n"
+    Format.fprintf oc "  jal ra, %s\n" fname
+  | LHalt -> Format.fprintf oc "  halt\n"
 
 let dump_riscv_fun oc (fname , lf) =
-  Format.fprintf oc "%s:\n" fname;
+  Format.fprintf oc "\n%s:\n" fname;
   List.iter (dump_riscv_instr oc) lf.ltlfunbody
 
 let riscv_load_args target oc : unit =
@@ -172,18 +176,147 @@ let riscv_prelude target oc =
   Format.fprintf oc "  %s t0, 0(gp)\n" (rv_store ());
   Format.fprintf oc "  mv s0, sp\n";
   riscv_load_args target oc ;
-  Format.fprintf oc "jal ra, main\n";
-  Format.fprintf oc "mv s0, a0\n";
-  Format.fprintf oc "jal ra, println\n";
-  Format.fprintf oc "mv a0, s0\n";
-  Format.fprintf oc "jal ra, print_int\n";
-  Format.fprintf oc "jal ra, println\n";
-  Format.fprintf oc "addi a7, zero, SYSCALL_EXIT\n";
-  Format.fprintf oc "ecall\n"
+  Format.fprintf oc "  jal ra, main\n";
+  Format.fprintf oc "  mv s0, a0\n";
+  Format.fprintf oc "  jal ra, println\n";
+  Format.fprintf oc "  mv a0, s0\n";
+  Format.fprintf oc "  jal ra, print_int\n";
+  Format.fprintf oc "  jal ra, println\n";
+  Format.fprintf oc "  addi a7, zero, SYSCALL_EXIT\n";
+  Format.fprintf oc "  ecall\n"
 
 let dump_riscv_prog target oc lp : unit =
   (if !nostart then () else riscv_prelude target oc);
-  Format.fprintf oc ".global main\n";
+  Format.fprintf oc "\n.global main\n";
   List.iter (function
         (fname, Gfun f) -> dump_riscv_fun oc (fname,f)
     ) lp
+
+let riscv_span class_name contents =
+  Format.sprintf "<span class=\"%s\">%s</span>"
+    class_name (html_escape contents)
+
+let is_riscv_register name =
+  let named_registers =
+    ["zero"; "ra"; "sp"; "gp"; "tp"; "fp";
+     "t0"; "t1"; "t2"; "t3"; "t4"; "t5"; "t6";
+     "s0"; "s1"; "s2"; "s3"; "s4"; "s5"; "s6"; "s7";
+     "s8"; "s9"; "s10"; "s11";
+     "a0"; "a1"; "a2"; "a3"; "a4"; "a5"; "a6"; "a7"]
+  in
+  List.mem name named_registers ||
+  let length = String.length name in
+  length > 1 && name.[0] = 'x' &&
+  try
+    let number = int_of_string (String.sub name 1 (length - 1)) in
+    number >= 0 && number <= 31
+  with Failure _ -> false
+
+let is_riscv_identifier_char = function
+  | 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' | '.' | '$' -> true
+  | _ -> false
+
+let is_riscv_number_char = function
+  | '0'..'9' | 'a'..'f' | 'A'..'F' | 'x' | 'X' -> true
+  | _ -> false
+
+let find_end predicate text start =
+  let rec find index =
+    if index < String.length text && predicate text.[index]
+    then find (index + 1)
+    else index
+  in
+  find start
+
+let highlight_riscv_operands operands =
+  let highlighted = Buffer.create (String.length operands * 2) in
+  let add_span class_name start finish =
+    Buffer.add_string highlighted
+      (riscv_span class_name (String.sub operands start (finish - start)))
+  in
+  let rec highlight index =
+    if index < String.length operands then
+      match operands.[index] with
+      | '"' ->
+        let rec find_quote position =
+          if position >= String.length operands then position
+          else if operands.[position] = '"' then position + 1
+          else find_quote (position + 1)
+        in
+        let finish = find_quote (index + 1) in
+        add_span "riscv-string" index finish;
+        highlight finish
+      | '-' when index + 1 < String.length operands &&
+                 operands.[index + 1] >= '0' && operands.[index + 1] <= '9' ->
+        let finish = find_end is_riscv_number_char operands (index + 1) in
+        add_span "riscv-number" index finish;
+        highlight finish
+      | '0'..'9' ->
+        let finish = find_end is_riscv_number_char operands index in
+        add_span "riscv-number" index finish;
+        highlight finish
+      | '%' ->
+        let finish = find_end is_riscv_identifier_char operands (index + 1) in
+        add_span "riscv-relocation" index finish;
+        highlight finish
+      | ('a'..'z' | 'A'..'Z' | '_' | '.' | '$') ->
+        let finish = find_end is_riscv_identifier_char operands index in
+        let word = String.sub operands index (finish - index) in
+        add_span
+          (if is_riscv_register word then "riscv-register" else "riscv-symbol")
+          index finish;
+        highlight finish
+      | (',' | '(' | ')' | ':') as punctuation ->
+        Buffer.add_string highlighted
+          (riscv_span "riscv-punctuation" (String.make 1 punctuation));
+        highlight (index + 1)
+      | character ->
+        Buffer.add_string highlighted (html_escape (String.make 1 character));
+        highlight (index + 1)
+  in
+  highlight 0;
+  Buffer.contents highlighted
+
+let highlight_riscv_line line =
+  let code, comment =
+    match String.index_opt line '#' with
+    | None -> line, None
+    | Some index ->
+      String.sub line 0 index,
+      Some (String.sub line index (String.length line - index))
+  in
+  let first_non_space =
+    find_end (function ' ' | '\t' -> true | _ -> false) code 0
+  in
+  let indentation = String.sub code 0 first_non_space in
+  let body =
+    String.sub code first_non_space (String.length code - first_non_space)
+  in
+  let first_word_end =
+    find_end (function ' ' | '\t' -> false | _ -> true) body 0
+  in
+  let first_word = String.sub body 0 first_word_end in
+  let remainder =
+    String.sub body first_word_end (String.length body - first_word_end)
+  in
+  let highlighted_code =
+    if first_word = "" then html_escape indentation
+    else if first_word.[0] = '.' then
+      html_escape indentation ^ riscv_span "riscv-directive" first_word ^
+      highlight_riscv_operands remainder
+    else if first_word.[String.length first_word - 1] = ':' then
+      html_escape indentation ^ riscv_span "riscv-label" first_word ^
+      highlight_riscv_operands remainder
+    else
+      html_escape indentation ^ riscv_span "riscv-opcode" first_word ^
+      highlight_riscv_operands remainder
+  in
+  match comment with
+  | None -> highlighted_code
+  | Some comment -> highlighted_code ^ riscv_span "riscv-comment" comment
+
+let dump_riscv_prog_html target oc program =
+  let assembly = Format.asprintf "%a" (dump_riscv_prog target) program in
+  String.split_on_char '\n' assembly
+  |> List.iter (fun line ->
+      Format.fprintf oc "%s\n" (highlight_riscv_line line))

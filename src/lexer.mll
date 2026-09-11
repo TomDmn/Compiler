@@ -19,7 +19,7 @@ rule token = parse
   | "&&" { SYM_BOOL_AND }
   | "||" { SYM_BOOL_OR }
   | "!" { SYM_BOOL_NOT }
-  | '&' { SYM_BITWISE_AND }
+  | '&' { SYM_AMPERSAND }
   | '~' { SYM_BIT_NOT }
   | '-' { SYM_MINUS }
   | '*' { SYM_ASTERISK }

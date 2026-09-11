@@ -114,7 +114,7 @@ let exec_ltl_instr oc ip st : (int option) res =
     get_reg st reg_ra $ fun ra ->
       OK (Some ra)
   | LConst (rd, i) -> Array.set st.regs rd i; next ip
-  | LComment _ -> next ip
+  | LComment _ | LGroupStart _ -> next ip
   | LBranch(cmp, rs1, rs2, s) ->
     get_reg st rs1 $ fun vs1 ->
       get_reg st rs2 $ fun vs2 ->

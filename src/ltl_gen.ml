@@ -325,7 +325,11 @@ let ltl_instrs_of_linear_instr fname live_out allocation
   | Rlabel l -> OK [LLabel (Format.sprintf "%s_%d" fname l)]
   in
   res >>= fun l ->
-  OK (LComment (Format.asprintf "#<span style=\"background: pink;\"><b>Linear instr</b>: %a #</span>" (Rtl_print.dump_rtl_instr fname (None, None) ~endl:"") ins)::l)
+  let source =
+    Format.asprintf "%a"
+      (Rtl_print.dump_rtl_instr fname (None, None) ~endl:"") ins
+  in
+  OK (LGroupStart (LinearSource source) :: l)
 
 (** Retrieves the location of the n-th argument (in the callee). The first 8 are
    passed in a0-a7, the next are passed on the stack. *)
@@ -368,15 +372,17 @@ let ltl_fun_of_linear_fun linprog
       0 linearfunbody in
   let epilogue_label = Format.sprintf "%s_%d" fname (max_label + 1) in
   let prologue =
+    [LGroupStart Prologue] @
     List.concat (List.map make_push (Set.to_list callee_saved_regs)) @
     LMov (reg_fp, reg_sp) ::
-    make_sp_sub (numspilled * (Archi.wordsize ())) @
-    [LComment "end prologue"] in
-  let epilogue = LLabel epilogue_label ::
-                 LMov(reg_sp, reg_fp) ::
-                 List.concat (List.map make_pop
-                                (List.rev (Set.to_list callee_saved_regs))) @
-                 [LJmpr reg_ra] in
+    make_sp_sub (numspilled * (Archi.wordsize ())) in
+  let epilogue =
+    LGroupStart Epilogue ::
+    LLabel epilogue_label ::
+    LMov(reg_sp, reg_fp) ::
+    List.concat (List.map make_pop
+                   (List.rev (Set.to_list callee_saved_regs))) @
+    [LJmpr reg_ra] in
   list_map_resi (fun i ->
       ltl_instrs_of_linear_instr fname (Collections.hashtbl_find_default live_out i Set.empty)
         allocation numspilled epilogue_label) linearfunbody
@@ -415,13 +421,11 @@ let ltl_prog_of_linear lp =
         ltl_fun_of_linear_fun lp f fname f_lives f_alloc >>= fun f ->
         OK (fname, Gfun f)
     ) lp in
-  prog
+  prog >>= fun program -> OK (program, allocations)
 
 let pass_ltl_gen linear =
   match ltl_prog_of_linear linear with
   | Error msg -> record_compile_result ~error:(Some msg) "LTL"; Error msg
-  | OK ltl ->
+  | OK (ltl, allocations) ->
     record_compile_result "LTL";
-    dump !ltl_dump dump_ltl_prog ltl
-      (fun file () -> add_to_report "ltl" "LTL" (Code (file_contents file)));
-    OK ltl
+    OK (ltl, allocations)

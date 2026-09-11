@@ -1,0 +1,2 @@
+.equ SYSCALL_WRITE, 16
+.equ SYSCALL_EXIT, 2

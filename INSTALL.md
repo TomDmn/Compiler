@@ -17,3 +17,11 @@
     > opam pin add alpaga git+https://gitlab-research.centralesupelec.fr/cidre-public/compilation/alpaga.git
 5. Build the project
     > make
+
+# Shell completions
+
+The package installs command-line completions for Bash, Zsh, and Fish.
+They are discovered automatically by standard package-manager installations.
+For a build used directly from the source tree, run make completions, then
+load the appropriate files from completions/bash, completions/zsh, or
+completions/fish.

@@ -4,6 +4,13 @@ type 'a res = OK of 'a | Error of string
 type ('a , 'b) sum = Inl of 'a | Inr of 'b
 type ('a , 'b, 'c) trisum = Tri1 of 'a | Tri2 of 'b | Tri3 of 'c
 
+let require_cli_arguments program synopsis =
+  if Array.length Sys.argv = 1 then begin
+    Format.eprintf "%s: no arguments provided.\nUsage: %s\nTry '%s -help' for more information.\n%!"
+      program synopsis program;
+    exit 2
+  end
+
 let string_of_error (msg: string) : string =
   msg
 
@@ -297,10 +304,13 @@ let dump file (dumpf : _ -> 'a -> unit) (p: 'a) (additional_command: string -> u
     | Some file ->
       let oc, close = 
         if file = "-"
-        then (Format.std_formatter, fun _ -> ())
+        then (Format.std_formatter, fun () -> Format.pp_print_flush Format.std_formatter ())
         else
-          let oc = open_out file in
-          (Format.formatter_of_out_channel oc, fun () -> close_out oc)
+          let channel = open_out file in
+          let formatter = Format.formatter_of_out_channel channel in
+          (formatter, fun () ->
+             Format.pp_print_flush formatter ();
+             close_out channel)
       in
       dumpf oc p; close ();
       if file <> "-" then additional_command file ()

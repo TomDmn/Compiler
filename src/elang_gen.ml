@@ -40,7 +40,7 @@ let binop_of_tag =
 
 (* [make_eexpr_of_ast a] builds an expression corresponding to a tree [a]. If
    the tree is not well-formed, fails with an [Error] message. *)
-let rec make_eexpr_of_ast (a: tree) : expr res =
+let rec make_eexpr_of_ast (typ_var : (string, unit) Hashtbl.t) (a: tree) : expr res =
   let res =
     match a with
     | Node(t, [e1; e2]) when tag_is_binop t ->
@@ -54,7 +54,7 @@ let rec make_eexpr_of_ast (a: tree) : expr res =
   | Error msg -> Error (Format.sprintf "In make_eexpr_of_ast %s:\n%s"
                           (string_of_ast a) msg)
 
-let rec make_einstr_of_ast (a: tree) : instr res =
+let rec make_einstr_of_ast (typ_var : (string, unit) Hashtbl.t) (a: tree) : instr res =
   let res =
     match a with
     (* TODO *)
@@ -85,6 +85,8 @@ let make_fundef_of_ast (a: tree) : (string * efun) res =
 
 let make_eprog_of_ast (a: tree) : eprog res =
   match a with
+  | Node (Tlistglobdef, []) ->
+    Error "Cannot generate an empty E program."
   | Node (Tlistglobdef, l) ->
     list_map_res (fun a -> make_fundef_of_ast a >>= fun (fname, efun) -> OK (fname, Gfun efun)) l
   | _ ->
@@ -97,6 +99,5 @@ let pass_elang ast =
     record_compile_result ~error:(Some msg) "Elang";
     Error msg
   | OK  ep ->
-    dump !e_dump dump_e ep (fun file () ->
-        add_to_report "e" "E" (Code (file_contents file))); OK ep
-
+    record_compile_result "Elang";
+    OK ep

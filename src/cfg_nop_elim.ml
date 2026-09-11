@@ -2,7 +2,6 @@ open Prog
 open Utils
 open Cfg
 open Report
-open Cfg_print
 open Options
 module Set = Collections.IntSet
 
@@ -85,6 +84,4 @@ let nop_elimination cp =
 let pass_nop_elimination cfg =
   let cfg = nop_elimination cfg in
   record_compile_result "NopElim";
-  dump (!cfg_dump >*> fun s -> s ^ "3") dump_cfg_prog cfg
-    (call_dot "cfg-after-nop" "CFG after NOP elim");
   OK cfg

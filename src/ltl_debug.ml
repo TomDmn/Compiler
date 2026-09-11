@@ -81,7 +81,7 @@ let trace_regs st =
 let make_trace ip (st: ltl_state) out () =
   let m = Mem.write_log st.mem () in
   let mread = Mem.read_log st.mem () in
-  let out = if out = "" then [] else [("output", `String (String.escaped out))] in
+  let out = if out = "" then [] else [("output", `String out)] in
   `Assoc ([
       ("step", `Int !(st.numstep));
       ("ip", `Int ip);
@@ -125,7 +125,7 @@ let json_loc (l: Regalloc.loc) : Yojson.t =
   | Regalloc.Reg r -> `Assoc [("reg", `String(string_of_reg r))]
   | Regalloc.Stk o -> `Assoc [("stk", `Int(o))]
 
-let debugger_message progname breaks state st prog rstop client : unit Lwt.t =
+let debugger_message progname breaks state st prog rstop default_memsize default_params client : unit Lwt.t =
   let open Frame in
   let send msg = Connected_client.send client (Frame.create ~opcode:Opcode.Text ~content:msg ())in
   let send_json j =
@@ -174,7 +174,8 @@ let debugger_message progname breaks state st prog rstop client : unit Lwt.t =
                             ]) :: acc
                   ) !st.funs [] |> fun funboundaries ->
     Collections.array_fold_lefti (fun acc ip ins ->
-                    (Format.fprintf Format.str_formatter "%a" dump_ltl_instr ins);
+                    (Format.fprintf Format.str_formatter "%a"
+                       Ltl_pretty_print.dump_debug_instruction ins);
                     (string_of_int ip, `String (Format.flush_str_formatter ())) :: acc
                   ) [] !st.code |> fun code ->
                 `List ( [`Assoc [("progname", `String progname);
@@ -198,8 +199,13 @@ let debugger_message progname breaks state st prog rstop client : unit Lwt.t =
     in
     Websocket_lwt_unix.Connected_client.recv client >>= react >>= loop
   in
+  let start () =
+    `Assoc [("defaults", `Assoc [
+        ("memsize", `Int default_memsize);
+        ("params", `List (List.map (fun value -> `Int value) default_params))
+      ])] |> send_json >>= loop in
   Lwt.catch
-    loop
+    start
     (fun exn ->
        Lwt_log.info_f  "Connection to client lost" >>= fun () ->
        Lwt.fail exn)
@@ -224,5 +230,5 @@ let debug_ltl_prog progname lp memsize params : unit=
           End_of_file -> Logs.info (fun m -> m "Client disconnected\n")
           | _ -> Logs.err (fun m -> m "Received exception : %s" (Printexc.to_string exn))
         )
-      (debugger_message progname breaks state st lp rstop) in
+      (debugger_message progname breaks state st lp rstop memsize params) in
   Lwt_main.run (Lwt.pick [server () ; pstop])

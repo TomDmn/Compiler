@@ -1,0 +1,11 @@
+(install
+ (section share)
+ (package ecomp)
+ (files
+  lib32.s
+  lib64.s
+  link.ld
+  mul32.S
+  mul64.S
+  (linux/syscall_numbers.s as linux/syscall_numbers.s)
+  (xv6/syscall_numbers.s as xv6/syscall_numbers.s)))

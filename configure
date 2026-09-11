@@ -2,6 +2,7 @@
 
 LEX_HAND="true"
 ALPAGA_PARSER="true"
+RUNTIME_DIR="${ECOMP_RUNTIME_DIR:-$(pwd)/runtime}"
 
 while [[ $# -gt 0 ]]
 do
@@ -24,25 +25,33 @@ do
             ALPAGA_PARSER="false"
             shift
             ;;
+        --runtime-dir)
+            RUNTIME_DIR="$2"
+            shift 2
+            ;;
+        --runtime-dir=*)
+            RUNTIME_DIR="${1#*=}"
+            shift
+            ;;
         *)    # unknown option
             shift # past argument
             ;;
     esac
 done
 
-RUNTIME=$(pwd)/runtime
-
 RVAS=$(which -a riscv64-unknown-linux-gnu-as riscv64-unknown-elf-as riscv64-linux-gnu-as 2>/dev/null | grep -v "not found" | head -n1)
 RVLD=$(which -a riscv64-unknown-linux-gnu-ld riscv64-unknown-elf-ld riscv64-linux-gnu-ld 2>/dev/null | grep -v "not found" | head -n1)
+RVOBJCOPY=$(which -a riscv64-unknown-linux-gnu-objcopy riscv64-unknown-elf-objcopy riscv64-linux-gnu-objcopy 2>/dev/null | grep -v "not found" | head -n1)
 QEMU32=$(which -a qemu-riscv32 qemu-riscv32-static 2>/dev/null | grep -v "not found" | head -n1)
 QEMU64=$(which -a qemu-riscv64 qemu-riscv64-static 2>/dev/null | grep -v "not found" | head -n1)
 
 
-echo "let runtime_dir = \"${RUNTIME}\"" > src/config.ml
+echo "let runtime_dir = \"${RUNTIME_DIR}\"" > src/config.ml
 echo "let qemu32 = \"${QEMU32}\"" >> src/config.ml
 echo "let qemu64 = \"${QEMU64}\"" >> src/config.ml
 echo "let rv_as = \"${RVAS}\"" >> src/config.ml
 echo "let rv_ld = \"${RVLD}\"" >> src/config.ml
+echo "let rv_objcopy = \"${RVOBJCOPY}\"" >> src/config.ml
 echo "let os_target = \"linux\"" >> src/config.ml
 echo "let lex_hand = $LEX_HAND" >> src/config.ml
 echo "let alpaga_parser = $ALPAGA_PARSER" >> src/config.ml

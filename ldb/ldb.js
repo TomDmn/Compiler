@@ -55,6 +55,29 @@ var nodeId = {};
 var ws;
 
 var log = {};
+var debuggerMemsize = 10000;
+
+function escape_html(value){
+    return String(value)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function set_connection(kind, label){
+    let status = document.querySelector('#connection_status');
+    status.className = "connection-status " + kind;
+    status.querySelector('.status-label').textContent = label;
+    status.disabled = kind !== "disconnected";
+    status.title = kind === "disconnected"
+        ? "Reconnect to ecomp-run"
+        : (kind === "connected" ? "Connected to ecomp-run" : "Connecting to ecomp-run");
+}
+
+function set_status(message, kind){
+    let status = document.querySelector('#status');
+    status.textContent = message;
+    status.className = "debug-status" + (kind ? " " + kind : "");
+}
 
 // Have we received data for step 'step'?
 function trace_for_step(step){
@@ -64,17 +87,22 @@ function trace_for_step(step){
 // Send a json object to the debugger
 function send_to_debugger(json){
     console.log("Sending "+ JSON.stringify(json));
-    ws.send(JSON.stringify(json)+"\n");
+    if(ws && ws.readyState === WebSocket.OPEN){
+        ws.send(JSON.stringify(json)+"\n");
+    } else {
+        set_status("The debugger is not connected.", "error");
+    }
 }
 
 // Conversion to hex
 // One byte
 function byte_to_string(i){
+    if(typeof i !== "number") return "??";
     return ("00" + i.toString(16)).substr(-2);
 }
 // One word
 function word_to_string(i){
-    return ("0".repeat(8) + i.toString(16)).substr(-8);
+    return ("0".repeat(8) + (Number(i) >>> 0).toString(16)).substr(-8);
 }
 // A bitvector of sz hex digits (hexvector?)
 function bv_to_string(sz, i){
@@ -88,7 +116,7 @@ function byte_to_char(i){
 }
 
 var isPlaying = false;
-var playSpeed = 0.6;
+var playSpeed = 450;
 var isFinished = false;
 var timer = undefined;
 
@@ -122,34 +150,26 @@ function is_highlighted(addr, highlight){
 // Display the memory at a given step, from memory address 'start' and
 // 'numbytes' bytes on. Highlight those addresses that are in highlight.
 function show_mem(step, start, numbytes, highlight){
-    var s = "";
-    var line = []; // holds the bytes in the line currently under construction,
-                   // used for printing chars on the right of each line
-    for(var j = 0; j < numbytes; j++){
-        let addr = start + j;
-        if(addr % 16 == 0) {
-            s+="\n" + word_to_string(addr) + ":";
+    let rows = "";
+    for(var offset = 0; offset < numbytes; offset += 16){
+        let address = start + offset;
+        let bytes = "";
+        let chars = "";
+        for(var column = 0; column < 16 && offset + column < numbytes; column++){
+            let addr = address + column;
+            let value = membyte(step, addr);
+            let classes = ["memory-byte"];
+            if(Object.prototype.hasOwnProperty.call(trace[step].memwrite, addr.toString())) classes.push("touched");
+            if(trace[step].memread.includes(addr)) classes.push("read");
+            let hi = is_highlighted(addr, highlight);
+            if(hi[0] && expr_css_classes[hi[1]]) classes.push(expr_css_classes[hi[1]]);
+            bytes += '<span class="' + classes.join(" ") + '" title="Address 0x' + word_to_string(addr) + '">' + byte_to_string(value) + '</span>';
+            chars += typeof value === "number" ? escape_html(byte_to_char(value)) : "·";
         }
-        if(addr %8 == 0) s+=" ";
-        let v = membyte(step, addr);
-        line.push(v);
-        let touched = (Object.keys(trace[step].memwrite).includes(addr.toString())) ? "touched" : "untouched";
-        let read = (trace[step].memread.includes(addr)) ? "read" : "unread";
-
-        let hi = is_highlighted(addr, highlight);
-        var col = "";
-        if(hi[0]){
-            col = expr_css_classes[hi[1]] ;
-        }
-        s+= "<span class=\""+ touched + " "+ read + " " + col +"\">" + byte_to_string(v) + "</span> ";
-        if((addr + 1) % 16 == 0) {
-            line.forEach(function(i){
-                s+= byte_to_char(i);
-            });
-            line = [];
-        }
+        rows += '<div class="memory-row"><span class="memory-address">0x' + word_to_string(address) +
+            '</span><span class="memory-bytes">' + bytes + '</span><span class="memory-ascii">' + chars + '</span></div>';
     }
-    return s;
+    return '<div class="memory-region">' + rows + '</div>';
 }
 
 // Show the state at step 'step'. 'highlight' is the set of addresses that
@@ -157,34 +177,28 @@ function show_mem(step, start, numbytes, highlight){
 // Shows registers, memory at "interesting addresses" (computed in
 // get_interesting_addresses).
 function show_state(step, highlight){
-    let numcols = 4;
-    var s = "<h1>Registers</h1><table>";
+    var s = '<div class="state-section-title">Registers</div><div class="register-grid">';
     let regs = trace[step]["regs"];
-    all_regs.forEach(function (k, i){
-        if (i % numcols == 0) s+= "<tr>";
-        s += "<td class=\"regname\">" + k
-            + "</td><td class=\"regval\" title=\"" + regs[k] + "\">0x"+ word_to_string(regs[k]) +"</td>";
-        i++;
-        if (i % numcols == 0) s+= "</tr>";
+    let previous = step > 0 && trace_for_step(step - 1) ? trace[step - 1].regs : undefined;
+    all_regs.forEach(function (name){
+        let value = regs[name];
+        let changed = previous && previous[name] !== value ? " changed" : "";
+        s += '<div class="register-card' + changed + '" title="' + name + ' = ' + value + '">' +
+            '<span class="register-name">' + name + '</span>' +
+            '<span class="register-hex">0x' + word_to_string(value) + '</span>' +
+            '<span class="register-decimal">' + value + '</span></div>';
     });
-    s += "</table>";
+    s += "</div>";
     document.querySelector('#regstate').innerHTML = s;
-    // s = "<h1>Stack</h1><pre>";
-    // let sp = regs["sp"];
-    // let s0 = regs["s0"];
-    // for(var addr = sp; addr <= 10000; addr+=8){
-    //     let a = Array.from(Array(8)).map((e,i) => membyte(step, addr + i));
-    //     let v = a.reduce(function(acc, b, i) { return acc + b * (1 << (8*i)); }, 0);
-    //     s += word_to_string(addr) + ": " + word_to_string(v) + "<br>";
-    // }
-    s = "<h1>Memory</h1><pre>";
     get_interesting_addresses();
+    s = '<div class="state-section-title">Accessed memory</div><div class="memory-regions">';
+    if(interesting_addresses.length === 0){
+        s += '<span class="empty-state">No memory has been accessed yet.</span>';
+    }
     interesting_addresses.forEach(function (ad){
-        s += "<hr>";
         s += show_mem(step, ad[0], ad[1], highlight);
     });
-
-    document.querySelector('#memstate').innerHTML = s + "</pre>";
+    document.querySelector('#memstate').innerHTML = s + "</div>";
 }
 
 // Set current label to 'label' in the code view and make it visible
@@ -194,7 +208,7 @@ function set_current_label(label){
     }
     d3.select('#code_'+label).classed("current", true);
     var elt = document.getElementById('code_'+label);
-    elt.scrollIntoView({block: "nearest"});
+    if(elt) elt.scrollIntoView({block: "nearest"});
     current_label = label;
 }
 
@@ -228,7 +242,10 @@ function state(step){
     });
 
     // Show output
-    d3.select('#output').html("<h1>Output</h1><pre>" +  get_output(step) +"</pre>");
+    let output = get_output(step);
+    d3.select('#output').html(output === ""
+        ? '<span class="empty-state">empty</span>'
+        : '<pre>' + escape_html(output) + '</pre>');
     // Set current label and step
     set_current_label(label);
     current_step = step;
@@ -312,17 +329,25 @@ function get_output(step){
 // Initializes the debugger with parameter values.
 function init(){
     var params = d3.select('#init_params').property('value');
-    let p = params.split(" ").map((val) => parseInt(val));
+    let p = params.trim() === "" ? [] : params.trim().split(/\s+/)
+        .map((val) => parseInt(val)).filter((val) => !Number.isNaN(val));
     trace = [];
     breaks = [];
     memo_table = {};
+    out_table = {};
     log = {};
-    send_to_debugger({'cmd': 'init', memsize:10000, params: p});
+    interesting_addresses = [];
+    current_step = 0;
+    current_label = undefined;
+    curCfgNode = undefined;
+    pause();
+    send_to_debugger({'cmd': 'init', memsize:debuggerMemsize, params: p});
     isFinished = false;
 }
 
 // Quits the debugger
 function quit(){
+    set_status("Stopping the debugger…");
     send_to_debugger({'cmd': 'quit'});
 }
 
@@ -396,6 +421,10 @@ function ip_to_fun(ip){
 }
 
 function get_jumps(){
+    if(Object.keys(trace).length === 0){
+        set_status("Step through the program before building its trace graph.");
+        return;
+    }
     var s = new Set();
     var curip = undefined;
     var states = [];
@@ -442,14 +471,32 @@ function get_jumps(){
         curs = s;
     });
     let container = document.querySelector('#cfg_cont');
+    let palette = ["#dbeafe", "#dcfce7", "#fef3c7", "#f3e8ff", "#ffe4e6", "#cffafe"];
+    let groups = {
+        current: {color: {background: "#2563eb", border: "#1d4ed8"}, font: {color: "#ffffff"}}
+    };
+    Object.keys(funboundaries).forEach(function(name, index){
+        groups[name] = {color: {background: palette[index % palette.length], border: "#94a3b8"}};
+    });
     var options = {
         layout: {
             randomSeed: 1,
         },
+        groups: groups,
+        nodes: {
+            shape: "box",
+            margin: {top: 8, right: 11, bottom: 8, left: 11},
+            borderWidth: 1,
+            borderWidthSelected: 2,
+            shapeProperties: {borderRadius: 8},
+            font: {face: "SFMono-Regular, Consolas, monospace", size: 13, color: "#172033"},
+            shadow: {enabled: true, color: "rgba(15,23,42,.12)", size: 8, x: 0, y: 3}
+        },
         edges:{
-            color:{
-                inherit:false
-            }
+            color: {color: "#94a3b8", highlight: "#2563eb", inherit: false},
+            width: 1.4,
+            font: {face: "system-ui", size: 11, color: "#64748b", background: "#ffffff"},
+            arrowStrikethrough: false
         },
         physics: {
             forceAtlas2Based: {
@@ -464,6 +511,7 @@ function get_jumps(){
             stabilization: { iterations: 150 }
         },
         manipulation: false,
+        interaction: {hover: true, keyboard: true}
     };
     cfgNodes = new vis.DataSet(nodes);
     cfgEdges = new vis.DataSet(edges);
@@ -473,13 +521,15 @@ function get_jumps(){
     };
     cfgNetwork = new vis.Network(container, data, options);
     d3.select('#cfg_legend').html("");
-    for(let [g,info] of Object.entries(cfgNetwork.groups.groups)){
+    for(let [g,info] of Object.entries(groups)){
         d3.select('#cfg_legend')
             .insert("span")
             .style("background", info.color.background)
-            .html(g)
-            .insert("br");
+            .style("color", g === "current" ? "white" : "#334155")
+            .text(g)
+            ;
     }
+    set_status("Trace graph updated.");
 }
 
 // Computes a set of memory addresses that are either read from or written to in
@@ -538,14 +588,26 @@ function log2string(step){
     for(var i = 0; i <= step; i++){
         s += safeDictGet(log, i, "");
     }
-    d3.select('#log').html("<pre>"+s+"</pre>");
+    d3.select('#log').html(s === ""
+        ? '<span class="empty-state">empty</span>'
+        : '<pre>' + escape_html(s) + '</pre>');
 }
 
 var expr_result = "";
 
 function compute_expr (step){
     let newValue = d3.select('#expr_input').property("value");
-    let ast = jsep(newValue);
+    if(newValue.trim() === ""){
+        expr_result = "—";
+        return [];
+    }
+    let ast;
+    try {
+        ast = jsep(newValue);
+    } catch(error) {
+        expr_result = "Invalid expression";
+        return [];
+    }
     var hi = [];
     let env = {
         "env": {...trace[step].regs, "ip": trace[step].ip, "step": step},
@@ -571,7 +633,11 @@ function compute_expr (step){
             );
         }
     };
-    expr_result = do_eval(ast, env);
+    try {
+        expr_result = do_eval(ast, env);
+    } catch(error) {
+        expr_result = "Error";
+    }
     return hi;
 }
 
@@ -589,16 +655,17 @@ function play_next(){
 }
 
 function play(){
+    clearInterval(timer);
     isPlaying = true;
-    d3.select('#play').style("font-weight", "bold");
-    d3.select('#pause').style("font-weight", "normal");
+    d3.select('#play').classed("active", true);
+    d3.select('#pause').classed("active", false);
     timer = setInterval(play_next, playSpeed);
 }
 function pause(){
     clearInterval(timer);
     isPlaying = false;
-    d3.select('#pause').style("font-weight", "bold");
-    d3.select('#play').style("font-weight", "normal");
+    d3.select('#pause').classed("active", true);
+    d3.select('#play').classed("active", false);
 
 }
 
@@ -626,7 +693,7 @@ function handle_command(d){
     if(d['step'] !== undefined){ // This is a trace for a given step index
         let ip = parseInt(d['ip']);
         let step = parseInt(d['step']);
-        d3.select('#status').html("Handling step="+step);
+        set_status("Recorded execution step " + step + ".");
         let out = (Object.keys(d).includes('output')) ? d['output'] : "";
         trace[step] = {
             "ip": ip,
@@ -639,61 +706,68 @@ function handle_command(d){
 
     } else if (d['currentstep'] !== undefined){
         current_step = parseInt(d['currentstep']);
-        d3.select('#status').html("Handling currentstep="+current_step);
+        set_status("Showing execution step " + current_step + ".");
         updateNumSteps();
         state(current_step);
+    } else if (d['defaults'] !== undefined){
+        debuggerMemsize = d['defaults']['memsize'];
+        d3.select('#init_params').property("value", d['defaults']['params'].join(" "));
+        init();
     } else if (d['code'] !== undefined){
-        d3.select('#code').html("");
-        var p;
+        let code = d3.select('#code').html("");
+        var group;
         var curf;
         for (let [ip, instr] of Object.entries(d['code'])) {
-            if(ip_to_fun(ip) != curf){
-                p = d3.select('#code').insert("p");
-                curf = ip_to_fun(ip);
+            let function_name = ip_to_fun(parseInt(ip));
+            if(function_name != curf){
+                group = code.append("div").attr("class", "code-function");
+                group.append("div").attr("class", "code-function-header").text(function_name);
+                curf = function_name;
             }
-            p.insert("a")
+            let row = group.append("div")
+                .attr("class", "code-instruction")
                 .attr("id", "code_"+ip)
-                .on("click", function(){ add_breakpoint(ip); } )
-                .html(ip + ": " + instr)
-                .append("br");
+                .attr("role", "button")
+                .attr("tabindex", "0")
+                .on("click", function(){ add_breakpoint(ip); })
+                .on("keydown", function(){
+                    if(d3.event.key === "Enter" || d3.event.key === " "){
+                        d3.event.preventDefault();
+                        d3.event.stopPropagation();
+                        add_breakpoint(ip);
+                    }
+                });
+            row.append("span").attr("class", "breakpoint-dot").attr("aria-hidden", "true");
+            row.append("span").attr("class", "instruction-address").text(ip);
+            row.append("span").attr("class", "instruction-text").html(instr);
         }
     } else if (d['progname'] !== undefined){
-        d3.select('#traceName').html(d['progname'] + " with params [" +
-                                     d['params'].join(", ") + "]"
-                                    );
+        let description = d['progname'] + " · arguments [" + d['params'].join(", ") + "]";
+        d3.select('#traceName').text(description);
+        d3.select('#init_params').property("value", d['params'].join(" "));
+        document.title = d['progname'].split('/').pop() + " — LTL debugger";
     } else if (d['funboundaries'] !== undefined){
         let vars_html = d3.select('#vars');
         vars_html.html("");
         d['funboundaries'].forEach(function(fb){
-            let icon = vars_html.insert("span").html("-");
-            let span = vars_html.insert("span").html(" Function "+fb['fname']);
-            vars_html.insert("br");
-            let p = vars_html.insert("p");
-            span.on('click', function(){
-                toggle(p, icon);
-            });
-            icon.on('click', function(){
-                toggle(p, icon);
-            });
-
+            let group = vars_html.append("details").attr("class", "variable-group").attr("open", true);
+            group.append("summary").text(fb['fname']);
+            let list = group.append("div").attr("class", "variable-list");
             for(let [evar,loc] of Object.entries(fb['vars'])){
-                if(Object.keys(loc).includes("reg")){
-                    p.insert("span").html("Var "+evar+": Reg "+loc["reg"])
-                        .insert("br");
-                } else {
-                    p.insert("span").html("Var "+evar+": Stk "+loc["stk"])
-                        .insert("br");
-                }
+                let row = list.append("div").attr("class", "variable-row");
+                row.append("span").text(evar);
+                row.append("span").attr("class", "variable-location")
+                    .text(Object.keys(loc).includes("reg") ? loc["reg"] : "stack " + loc["stk"]);
             }
             funboundaries[fb['fname']] = {start : fb['start'],
                                           end: fb['end'],};
-        }
-                                  );
+        });
     } else if (d['error'] !== undefined){
-        d3.select('#status').html("Error="+d['error']);
+        set_status(d['errorMsg'] || d['error'], "error");
     } else if (d['finished'] !== undefined){
         isFinished = true;
         pause();
+        set_status("Program finished.");
     }
 
 
@@ -709,8 +783,6 @@ function updateNumSteps(){
 
 var __buf = "";
 
-d3.select('#code').insert("h3").html("Code");
-
 
 document.querySelector('#curstep').innerHTML = 0;
 updateNumSteps();
@@ -719,9 +791,6 @@ document.querySelector('#prev_bp').onclick = prev_bp;
 document.querySelector('#prev_step').onclick = prev_step;
 document.querySelector('#next_step').onclick = next_step;
 document.querySelector('#next_bp').onclick = next_bp;
-
-document.querySelector('#play').onclick = next_bp;
-document.querySelector('#pause').onclick = next_bp;
 
 d3.select("body")
     .on("keydown", function(){
@@ -761,34 +830,51 @@ d3.select('#expr_input').on("change", function (){ state(current_step); });
 d3.select('#btn_init').on("click", init);
 d3.select('#quit_btn').on("click", quit);
 d3.select('#graph_btn').on("click", get_jumps);
-
-ws = new WebSocket("ws://127.0.0.1:8080");
-// ws.binaryType = "arraybuffer";
+d3.select('#play').on("click", play);
+d3.select('#pause').on("click", pause);
 var recv = [];
-ws.onmessage = function(event) {
-    let dr = // ab2str
-    (event.data);
-    recv.push(dr);
-    __buf += dr;
-    var todo = [];
-    var d = undefined;
-    try {
-        var s = __buf.split("@");
-        for(var i = 0; i < s.length - 1; i++){
-            todo.push(JSON.parse(s[i]));
+d3.select('#connection_status').on("click", connect_debugger);
+
+function connect_debugger(){
+    if(ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+    set_connection("connecting", "Connecting");
+    set_status("Connecting to ecomp-run on port 8080…");
+    __buf = "";
+    recv = [];
+    let socket = new WebSocket("ws://127.0.0.1:8080");
+    ws = socket;
+    socket.onmessage = function(event) {
+        if(ws !== socket) return;
+        let data = event.data;
+        recv.push(data);
+        __buf += data;
+        var todo = [];
+        try {
+            var messages = __buf.split("@");
+            for(var i = 0; i < messages.length - 1; i++){
+                todo.push(JSON.parse(messages[i]));
+            }
+            __buf = messages[messages.length - 1];
+        } catch (error) {
+            if (error instanceof SyntaxError && debug) console.warn("Incomplete debugger message", __buf);
         }
-        __buf = s[s.length - 1];
-    } catch (e) {
-        if (e instanceof SyntaxError){
-            //                console.log("JSON parse KO." , __buf, e);
-        }
-    }
-    todo.forEach (d => handle_command(d));
-};
-ws.onopen = function(event){
-    init();
-};
+        todo.forEach(message => handle_command(message));
+    };
+    socket.onopen = function(){
+        if(ws !== socket) return;
+        set_connection("connected", "Connected");
+        set_status("Connected. Waiting for program data…");
+    };
+    socket.onclose = function(event){
+        if(ws !== socket) return;
+        pause();
+        set_connection("disconnected", "Reconnect");
+        set_status("Debugger connection closed. Use Reconnect to try again.", event.wasClean ? "" : "error");
+    };
+    socket.onerror = function(){
+        if(ws !== socket) return;
+        set_status("Could not connect to ecomp-run on port 8080.", "error");
+    };
+}
 
-
-
-
+connect_debugger();

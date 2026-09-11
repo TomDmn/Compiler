@@ -47,6 +47,11 @@ let reg_tmp2 = reg_t1
 let reg_fp = reg_s0
 let reg_ret = reg_a0
 
+type ltl_group =
+  | Prologue
+  | LinearSource of string
+  | Epilogue
+
 type ltl_instr =
     LAddi of ltl_reg * ltl_reg * int
   | LSubi of ltl_reg * ltl_reg * int
@@ -71,6 +76,7 @@ type ltl_instr =
   | LConst of ltl_reg * int     (* LConst(rd,i) : load immediate value [i] in
                                    register [rd]. *)
   | LComment of string
+  | LGroupStart of ltl_group    (* Starts a visual group in LTL listings. *)
   | LCall of string             (* LCall(f) : calls function [f]. *)
   | LBranch of rtl_cmp * ltl_reg * ltl_reg * string (* LBranch(cmp, rs1, rs2,
                                                        label): compares [rs1]

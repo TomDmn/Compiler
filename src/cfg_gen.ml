@@ -3,7 +3,6 @@ open Cfg
 open Utils
 open Prog
 open Report
-open Cfg_print
 open Options
 module Set = Collections.IntSet
 
@@ -115,5 +114,4 @@ let pass_cfg_gen ep =
     record_compile_result ~error:(Some msg) "CFG"; Error msg
   | OK cfg ->
     record_compile_result "CFG";
-    dump !cfg_dump dump_cfg_prog cfg (call_dot "cfg" "CFG");
     OK cfg

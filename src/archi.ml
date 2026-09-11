@@ -25,6 +25,8 @@ let linker () =
   in
   Format.sprintf "%s %s" Config.rv_ld opts
 
+let objcopy () = Config.rv_objcopy
+
 let instrsuffix () =
   match !archi with
   | A64 -> 'd'

@@ -8,4 +8,8 @@ src/.vscode/
 .vscode/
 Makefile.config
 _build/
+.test-results/
 ecomp
+ecomp-run
+ecomp-report
+*.install

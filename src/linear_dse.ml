@@ -4,7 +4,6 @@ open Linear_liveness
 open Prog
 open Utils
 open Report
-open Linear_print
 open Report
 open Options
 module Set = Collections.IntSet
@@ -36,8 +35,4 @@ let dse_prog p live =
 let pass_linear_dse linear lives =
   let linear = dse_prog linear lives in
   record_compile_result "DSE";
-  dump (!linear_dump >*> fun s -> s ^ "1")
-    (fun oc -> dump_linear_prog oc (Some lives)) linear
-    (fun file () -> add_to_report "linear-after-dse" "Linear after DSE"
-        (Code (file_contents file)));
   OK linear

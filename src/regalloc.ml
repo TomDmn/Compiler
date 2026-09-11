@@ -3,8 +3,6 @@ open Linear
 open Rtl
 open Linear_liveness
 open Utils
-open Report
-open Options
 module Set = Collections.IntSet
 
 
@@ -17,6 +15,9 @@ module Set = Collections.IntSet
    a Linear function, a location (type [loc]).*)
 
 type loc = Reg of int | Stk of int
+
+type allocation_info = (reg, Set.t) Hashtbl.t * (reg, loc) Hashtbl.t * int
+type allocations = (string, allocation_info) Hashtbl.t
 
 (* A location is either a machine register (identified by its number [r]
    between 0 and 31 inclusive), [Reg r], or a stack location [Stk o], meaning
@@ -253,45 +254,8 @@ let regalloc_fun (f: linear_fun)
   (rig, allocation, next_stack_slot)
 
 
-(* [dump_interf_graph fname rig] displays the interferences associated with
-   each register. It may be useful for debugging; there is no need to inspect
-   this function unless it is buggy. *)
-let dump_interf_graph oc (fname, rig, allocation) =
-  let colors = Array.of_list [
-      "blue"; "red"; "orange"; "pink"; "green"; "purple";
-      "brown"; "turquoise"; "gray"; "gold"; "darkorchid"; "bisque";
-      "darkseagreen"; "cornsilk"; "burlywood"; "dodgerblue"; "antiquewhite"; "firebrick";
-      "deepskyblue"; "darkolivegreen"; "hotpink"; "lightsalmon"; "magenta"; "lawngreen";
-    ] in
-  let color_of_allocation r =
-    match Hashtbl.find_opt allocation r with
-    | Some (Reg r) ->
-      Array.get colors (r mod Array.length colors)
-    | _ -> "white"
-  in
-  Format.fprintf oc "subgraph cluster_%s{\n" fname;
-  Format.fprintf oc "label=\"%s\";\n" fname;
-  Hashtbl.to_seq_keys rig |> Seq.iter (fun r ->
-      Format.fprintf oc "%s_r%d [label=\"r%d\",style=filled,fillcolor=\"%s\"];\n" fname r r (color_of_allocation r)
-    );
-  Hashtbl.iter
-    (fun i s ->
-       Set.iter (fun x ->
-           Format.fprintf oc "%s_r%d -> %s_r%d;\n" fname i fname x
-         ) s;)
-    rig;
-  Format.fprintf oc "}\n"
-
-let dump_interf_graphs oc allocations =
-  Format.fprintf oc "digraph RIGS {\n";
-  Hashtbl.iter (fun fname (rig, allocation, next_stack_slot) ->
-      dump_interf_graph oc (fname, rig, allocation)
-    ) allocations;
-  Format.fprintf oc "}\n"
-
-(* We apply register allocation to the entire Linear program, and we
-   displays all of this in the report (the HTML page of each file).*)
-let regalloc lp lives all_colors =
+(* We apply register allocation to the entire Linear program. *)
+let regalloc lp lives all_colors : allocations =
   let allocations = Hashtbl.create 17 in
   List.iter (function (fname,Gfun f) ->
       begin match Hashtbl.find_opt lives fname with
@@ -306,6 +270,4 @@ let regalloc lp lives all_colors =
       | None -> ()
       end
     ) lp;
-  dump !Options.rig_dump dump_interf_graphs allocations
-    (call_dot "regalloc" "Register Allocation");
   allocations

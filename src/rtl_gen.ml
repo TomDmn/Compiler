@@ -4,7 +4,6 @@ open Rtl
 open Prog
 open Utils
 open Report
-open Rtl_print
 open Options
 
 (* Part of generating RTL involves allocating variables into
@@ -94,6 +93,5 @@ let rtl_of_cfg cp = List.map (fun (s, gd) -> (s, rtl_of_gdef s gd)) cp
 
 let pass_rtl_gen cfg =
   let rtl = rtl_of_cfg cfg in
-  dump !rtl_dump dump_rtl_prog rtl
-    (fun file () -> add_to_report "rtl" "RTL" (Code (file_contents file)));
+  record_compile_result "RTL";
   OK rtl

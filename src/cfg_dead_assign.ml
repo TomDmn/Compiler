@@ -3,7 +3,6 @@ open Prog
 open Utils
 open Cfg_liveness
 open Report
-open Cfg_print
 open Options
 module Set = Collections.StringSet
 
@@ -40,6 +39,4 @@ let dead_assign_elimination p =
 let pass_dead_assign_elimination cfg =
   let cfg = dead_assign_elimination cfg in
   record_compile_result "DeadAssign";
-  dump (!cfg_dump >*> fun s -> s ^ "2") dump_cfg_prog cfg
-    (call_dot "cfg-after-dae" "CFG after DAE");
   OK cfg

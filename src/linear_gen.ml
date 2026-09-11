@@ -3,7 +3,6 @@ open Linear
 open Prog
 open Utils
 open Report
-open Linear_print
 open Options
 open Linear_liveness
 module Set = Collections.IntSet
@@ -62,6 +61,5 @@ let linear_of_rtl r =
 let pass_linearize rtl =
   let linear = linear_of_rtl rtl in
   let lives = liveness_linear_prog linear in
-  dump !linear_dump (fun oc -> dump_linear_prog oc (Some lives)) linear
-    (fun file () -> add_to_report "linear" "Linear" (Code (file_contents file)));
+  record_compile_result "Linear";
   OK (linear, lives)
