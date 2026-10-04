@@ -266,8 +266,15 @@ let min_priority (l: token list) : token option =
    accompanied by the token they recognize.*)
 let dfa_final_states (n: nfa) (dfa_states: dfa_state list) :
   (dfa_state * (string -> token option)) list  =
-   (* TODO *)
-   []
+  List.filter_map (fun q -> (* We only keep the dfa states that are final *)
+      let q_finals = Set.fold (fun s acc -> (* We go through every nfa state s inside the dfa state q *)
+          match List.assoc_opt s n.nfa_final with (* We check if s is a final state of the nfa *)
+          | Some f -> f :: acc (* If it is, we keep its function (there can be several of them in q) *)
+          | None -> acc) q [] in (* Else we ignore it *)
+      match q_finals with
+      | [] -> None (* No nfa final state inside q, so q is not a final state of the dfa *)
+      | _ -> Some (q, fun w -> min_priority (List.filter_map (fun f -> f w) q_finals)) (* Else q is final : we apply every function to the word w and keep the token with the highest priority *)
+    ) dfa_states
 
 (* Construction of the DFA transition relationship.*)
 
