@@ -6,10 +6,10 @@
 (ocamllex lexer)
 
 (rule
- (target generated_parser.ml)
+ (targets generated_parser.ml grammar.html)
  (deps ../expr_grammar_action.g)
  (action
-  (run %{bin:alpaga} -g %{dep:../expr_grammar_action.g} -pml %{target} -html ../grammar.html)))
+  (run %{bin:alpaga} -g %{dep:../expr_grammar_action.g} -pml generated_parser.ml -html grammar.html)))
 
 (rule
   (target config.ml)

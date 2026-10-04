@@ -17,9 +17,8 @@ axiom S
   open Ast
   open Utils
 
-  (* TODO *)
   let resolve_associativity term other =
-       (* TODO *)
+       (* TODO 5.12 *)
     term
 
 
@@ -27,3 +26,4 @@ axiom S
 
 rules
 S -> FUNDEFS SYM_EOF {  Node (Tlistglobdef, []) }
+// TODO 5.11 Add your new rules below

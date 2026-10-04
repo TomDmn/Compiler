@@ -1,10 +1,10 @@
-all: ecomp ecomp-run ecomp-report
+all: ecomp ecomp-run ecomp-report grammar.html
 
 TESTS_DIR ?= ../ecomp-tests
 TEST_OUTPUT_DIR ?= $(abspath .test-results)
 SUITE ?=
 
-.PHONY: all ecomp ecomp-run ecomp-report completions check-completions deps clean test check-tests
+.PHONY: all ecomp ecomp-run ecomp-report grammar.html completions check-completions deps clean test check-tests
 
 check-tests:
 	@if [ ! -f "$(TESTS_DIR)/Makefile" ]; then \
@@ -26,6 +26,10 @@ ecomp-run:
 ecomp-report:
 	dune build --root . ./src/report_main.exe
 	ln -sf _build/default/src/report_main.exe ecomp-report
+
+grammar.html:
+	dune build --root . ./src/grammar.html
+	ln -sf _build/default/src/grammar.html grammar.html
 
 completions:
 	./tools/generate_completions.sh
