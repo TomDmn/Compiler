@@ -218,7 +218,7 @@ let rec build_dfa_table (table: (dfa_state, (char * dfa_state) list) Hashtbl.t)
     let transitions : (char * dfa_state) list =
       let all_steps = Set.fold (fun q acc -> n.nfa_step q @ acc) ds [] in  (* We collect all transitions that start from a state in ds*)
       let merged = assoc_merge_vals (assoc_distribute_key (assoc_throw_none all_steps)) in (* We do the next operation of the determinization*)
-      List.map (fun (c, states) -> (c, epsilon_closure_set n states)) merged
+      List.map (fun (c, states) -> (c, epsilon_closure_set n states)) merged (*then the epsilon closure*)
     in
     Hashtbl.replace table ds transitions;
     List.iter (build_dfa_table table n) (List.map snd transitions)
@@ -252,8 +252,15 @@ let priority t =
 (* [min_priority l] returns the token of [l] that has the lowest priority, or
    [None] if the [l] list is empty.*)
 let min_priority (l: token list) : token option =
-   (* TODO *)
-   None
+  match l with
+  | [] -> None
+  | x :: a -> 
+    Some (List.fold_left
+        (fun min_token token ->
+          if priority token < priority min_token
+          then token
+          else min_token) x a) 
+        
 
 (* [dfa_final_states n dfa_states] returns the list of final DFA states,
    accompanied by the token they recognize.*)
