@@ -42,19 +42,39 @@ let empty_nfa =
 
 (* Concatenation of NFAs.*)
 let cat_nfa n1 n2 =
-   (* TODO *)
-   empty_nfa
+  {
+    nfa_states = n1.nfa_states @ n2.nfa_states;
+    nfa_initial = n1.nfa_initial;
+    nfa_final = n2.nfa_final;
 
+    nfa_step = fun q -> 
+      let normal_states = n1.nfa_step q @ n2.nfa_step q in (*normal transitions from the initial NFA*)
+
+      if List.mem_assoc q n1.nfa_final (* if q is in the final states of n1*)
+        then normal_states @ List.map (fun s -> (None, s)) n2.nfa_initial(*then we add the possibility to do an esp transition toward the initial states of n2*)
+      else normal_states;
+  }
 (* Alternation of NFAs *)
 let alt_nfa n1 n2 =
-   (* TODO *)
-   empty_nfa
+  {
+    nfa_states = n1.nfa_states @ n2.nfa_states;
+    nfa_initial = n1.nfa_initial @ n2.nfa_initial;
+    nfa_final = n1.nfa_final @ n2.nfa_final;
+    nfa_step = fun q -> n1.nfa_step q @ n2.nfa_step q
+  }
 
 (* Repetition of NFAs*)
 (* t is of type [string -> token option]*)
 let star_nfa n t =
-   (* TODO *)
-   empty_nfa
+  {
+    nfa_states = n.nfa_states;
+    nfa_initial = n.nfa_initial;
+    nfa_final = List.map (fun q -> (q, t)) (n.nfa_initial @ List.map fst n.nfa_final); (*we add the initials states to the final states for the 0 repition case, then we add the t fct*)
+    nfa_step = fun q -> 
+      if List.mem_assoc q n.nfa_final (* if q is in the final states of n*)
+        then (n.nfa_step q) @ List.map (fun s -> (None, s)) n.nfa_initial(*then we add the possibility to do an esp transition toward the initial states of n*)
+      else n.nfa_step q;
+  }
 
 
 (* [nfa_of_regexp r freshstate t] constructs an NFA that recognizes the same
@@ -74,8 +94,14 @@ let rec nfa_of_regexp r freshstate t =
                 nfa_final = [freshstate + 1, t];
                 nfa_step = fun q -> if q = freshstate then [(Some c, freshstate + 1)] else []
               }, freshstate + 2
-   (* TODO *)
-   | _ -> empty_nfa, freshstate
+  | Cat (r1, r2) -> let temp_n1, temp_freshstate1 = (nfa_of_regexp r1 freshstate t) in
+                    let temp_n2, temp_freshstate2 = (nfa_of_regexp r2 temp_freshstate1 t) in
+                    cat_nfa temp_n1 temp_n2, temp_freshstate2
+  | Alt (r1, r2) -> let temp_n1, temp_freshstate1 = (nfa_of_regexp r1 freshstate t) in
+                    let temp_n2, temp_freshstate2 = (nfa_of_regexp r2 temp_freshstate1 t) in
+                    alt_nfa temp_n1 temp_n2, temp_freshstate2
+  | Star r1 -> let temp_n, temp_freshstate = (nfa_of_regexp r1 freshstate t) in
+               star_nfa temp_n t, temp_freshstate
 
 (* Deterministic Finite Automaton (DFA) *)
 
@@ -112,25 +138,28 @@ type dfa =
    that is, the set of states reachable from [s] using only epsilon
    transitions. *)
 let epsilon_closure (n: nfa) (s: nfa_state) : Set.t =
-  (* [traversal visited s] traverses the automaton from state [s], following
-     only epsilon transitions. *)
   let rec traversal (visited: Set.t) (s: nfa_state) : Set.t =
-         (* TODO *)
-         visited
+    if Set.mem s visited then
+      visited
+    else
+      let visited = Set.add s visited in
+    
+      let eps_step = List.filter_map (fun (transition, destination) -> if transition = None then Some destination else None) (n.nfa_step s) in
+
+      List.fold_left (fun acc q -> traversal acc q) visited eps_step
   in
   traversal Set.empty s
 
 (* [epsilon_closure_set n ls] computes the union of the epsilon closures of all
    NFA states in [ls]. *)
 let epsilon_closure_set (n: nfa) (ls: Set.t) : Set.t =
-   (* TODO *)
-   ls
+   Set.fold (fun q acc -> Set.union acc (epsilon_closure n q)) ls Set.empty
+   
 
 (* [dfa_initial_state n] computes the initial state of the determinized
    automaton. *)
 let dfa_initial_state (n: nfa) : dfa_state =
-   (* TODO *)
-   Set.empty
+   epsilon_closure_set n (Set.of_list n.nfa_initial)
 
 (* Construction of the DFA automaton transition table.*)
 
