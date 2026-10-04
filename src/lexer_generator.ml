@@ -94,9 +94,9 @@ let rec nfa_of_regexp r freshstate t =
                 nfa_final = [freshstate + 1, t];
                 nfa_step = fun q -> if q = freshstate then [(Some c, freshstate + 1)] else []
               }, freshstate + 2
-  | Cat (r1, r2) -> let temp_n1, temp_freshstate1 = (nfa_of_regexp r1 freshstate t) in
-                    let temp_n2, temp_freshstate2 = (nfa_of_regexp r2 temp_freshstate1 t) in
-                    cat_nfa temp_n1 temp_n2, temp_freshstate2
+  | Cat (r1, r2) -> let temp_n1, temp_freshstate1 = (nfa_of_regexp r1 freshstate t) in       (*We translate r1, without forgetting to increment freshstate*)
+                    let temp_n2, temp_freshstate2 = (nfa_of_regexp r2 temp_freshstate1 t) in  (*same for r2*)
+                    cat_nfa temp_n1 temp_n2, temp_freshstate2                                 (*Then we use our previous function to concatenate them*)
   | Alt (r1, r2) -> let temp_n1, temp_freshstate1 = (nfa_of_regexp r1 freshstate t) in
                     let temp_n2, temp_freshstate2 = (nfa_of_regexp r2 temp_freshstate1 t) in
                     alt_nfa temp_n1 temp_n2, temp_freshstate2
@@ -139,14 +139,15 @@ type dfa =
    transitions. *)
 let epsilon_closure (n: nfa) (s: nfa_state) : Set.t =
   let rec traversal (visited: Set.t) (s: nfa_state) : Set.t =
-    if Set.mem s visited then
+    if Set.mem s visited then       (*If s is already in visited we stop*)
       visited
     else
-      let visited = Set.add s visited in
-    
+      let visited = Set.add s visited in (*Else we add s in visited*)
+      
+      (*We only keep the state in which we can advance from s with an esp transition*)
       let eps_step = List.filter_map (fun (transition, destination) -> if transition = None then Some destination else None) (n.nfa_step s) in
 
-      List.fold_left (fun acc q -> traversal acc q) visited eps_step
+      List.fold_left (fun acc q -> traversal acc q) visited eps_step (*Then we do this to all the state we gathered since the beginning*)
   in
   traversal Set.empty s
 
@@ -215,9 +216,10 @@ let rec build_dfa_table (table: (dfa_state, (char * dfa_state) list) Hashtbl.t)
     (* [transitions] contains the constructed DFA transitions
      * from the NFA transitions as described previously*)
     let transitions : (char * dfa_state) list =
-         (* TODO *)
-         []
-      in
+      let all_steps = Set.fold (fun q acc -> n.nfa_step q @ acc) ds [] in  (* We collect all transitions that start from a state in ds*)
+      let merged = assoc_merge_vals (assoc_distribute_key (assoc_throw_none all_steps)) in (* We do the next operation of the determinization*)
+      List.map (fun (c, states) -> (c, epsilon_closure_set n states)) merged
+    in
     Hashtbl.replace table ds transitions;
     List.iter (build_dfa_table table n) (List.map snd transitions)
 
